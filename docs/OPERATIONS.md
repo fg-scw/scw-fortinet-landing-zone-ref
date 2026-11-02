@@ -25,7 +25,7 @@ Supprimez ensuite le dossier et l'entrée de `bus.yaml`. Gardez l'`index` réser
 
 ## Changer la politique du firewall
 
-Modifiez `live/dsi/policy.yaml` (format : [docs/CONFIGURATION.md](CONFIGURATION.md)), puis `terragrunt apply --working-dir live/dsi`. Les règles sont poussées en direct sur le primaire FGCP, qui synchronise le secondaire, sans redémarrage. Un réglage fait dans le WebUI est écrasé au prochain push.
+Modifiez `live/dsi/policy.yaml` (format : [CONFIGURATION.md](CONFIGURATION.md)), puis `terragrunt apply --working-dir live/dsi`. Les règles sont poussées en direct sur le primaire FGCP, qui synchronise le secondaire, sans redémarrage. Un réglage fait dans le WebUI est écrasé au prochain push.
 
 ## Reconstruire un firewall
 
@@ -91,18 +91,17 @@ Faites de même dans `fr-par-2` si des VM y ont tourné. Notez les `project_id` 
 
 ## Limites connues
 
-- **Produits sans peering.** Redis, MongoDB, Kafka, OpenSearch et ClickHouse ne suivent pas le routage VPC : ils ne sont joignables que depuis leur Private Network.
-- **Exposition directe.** Les chemins Internet créés par une BU ne passent pas par le firewall : IP publique d'instance (`InstancesFullAccess`), Load Balancer, nœuds Kapsule avec IP publique. Le contrôle passe par IAM et par un inventaire des projets BU (`scw instance ip list project-id=<projet>`, `scw lb list project-id=<projet>`). Retirer `InstancesFullAccess`, `LoadBalancersFullAccess` ou `KubernetesFullAccess` de `iam_permission_sets` ferme ces voies.
-- **Secrets dans le state.** Le state DSI contient le mot de passe `admin`, le mot de passe HA et les clés API de bascule : protégez le bucket.
-- **Clés de bascule.** Le firewall ne détient qu'une clé `FunctionsPrivateAccess`, qui permet seulement d'appeler la fonction privée ; la clé `IPAMFullAccess` reste dans la fonction, limitée au projet DSI.
-- **Sloppy state.** Par défaut, les règles sont en *sloppy state* : le firewall ne vérifie plus les numéros de séquence TCP, ce qui aide les sessions à survivre à une bascule.
-- **NAT.** `policy.nat_outbound` n'est pas pris en charge : le trafic Internet des BU est traduit vers la VIP egress par la règle `[EGRESS]`.
-- **Licences.** BYOL, une par nœud.
-- **NACL.** Les retours sont ouverts en TCP et UDP sur 32768-65535 depuis toute source : un service qui écoute sur ces ports est joignable de l'extérieur de la BU (le firewall filtre ce qui vient du Hub, pas le bypass Interlink), sauf sur une instance qui porte le security group de référence de la BU. Pas de NACL ni de routes IPv6.
-- **Security groups.** Trois niveaux : le firewall filtre entre VPC, les NACL de la DSI aux frontières des VPC BU, les security groups au niveau de chaque carte Private Network (`security_group_ids` de l'unité BU, à poser par la BU sur ses instances). La BU peut les modifier ou les détacher : le contrôle passe par Audit Trail et un inventaire des cartes sans groupe. Côté DSI, la carte de management des firewalls n'accepte que SSH et HTTPS depuis les bastions des PGW ; les cartes hub, egress et heartbeat n'ont pas de groupe (le firewall filtre). Un security group sur une carte Private Network y désactive l'IPv6.
-- **Edge Services vers LB.** Ce trafic est en HTTP, non chiffré.
-- **VPN.** Scaleway n'expose aucun timer BGP, BFD ou DPD : la vitesse de bascule entre les deux tunnels se règle sur la passerelle on-prem.
-- **Sessions.** Elles peuvent survivre à une bascule de firewall en *sloppy state*, jamais à la perte d'une Public Gateway (l'IP publique change).
-- **Nouvelles BU.** Les VM déjà démarrées reçoivent les nouvelles routes par DHCP en jusqu'à 1 h.
-- **Quota de peering.** 512 connecteurs par organisation : 127 BU sans bypass, 85 avec.
-- **Journaux.** Ils restent locaux sauf si vous renseignez `firewall.syslog` ou déployez le relais d'observabilité.
+- Redis, MongoDB, Kafka, OpenSearch et ClickHouse ne suivent pas le routage VPC : ils ne sont joignables que depuis leur Private Network.
+- Exposition directe : les chemins Internet qu'une BU crée elle-même ne passent pas par le firewall : IP publique d'instance (`InstancesFullAccess`), Load Balancer, nœuds Kapsule avec IP publique. Le contrôle passe par IAM et par un inventaire des projets BU (`scw instance ip list project-id=<projet>`, `scw lb list project-id=<projet>`). Retirer `InstancesFullAccess`, `LoadBalancersFullAccess` ou `KubernetesFullAccess` de `iam_permission_sets` ferme ces voies.
+- Le state DSI contient le mot de passe `admin`, le mot de passe HA et les clés API de bascule : protégez le bucket.
+- Le firewall ne détient qu'une clé `FunctionsPrivateAccess`, qui permet seulement d'appeler la fonction privée ; la clé `IPAMFullAccess` reste dans la fonction, limitée au projet DSI.
+- Par défaut, les règles sont en *sloppy state* : le firewall ne vérifie plus les numéros de séquence TCP, et les sessions survivent à une bascule de firewall. Elles ne survivent jamais à la perte d'une Public Gateway, car l'IP publique change.
+- `policy.nat_outbound` n'est pas pris en charge : le trafic Internet des BU est traduit vers la VIP egress par la règle `[EGRESS]`.
+- Les licences sont en BYOL, une par nœud.
+- Dans les NACL, les retours sont ouverts en TCP et UDP sur 32768-65535 depuis toute source : un service qui écoute sur ces ports est joignable de l'extérieur de la BU (le firewall filtre ce qui vient du Hub, pas le bypass Interlink), sauf sur une instance qui porte le security group de référence de la BU. Pas de NACL ni de routes IPv6.
+- Le filtrage a trois niveaux : le firewall entre VPC, les NACL de la DSI aux frontières des VPC BU, les security groups au niveau de chaque carte Private Network (`security_group_ids` de l'unité BU, à poser par la BU sur ses instances). La BU peut les modifier ou les détacher : le contrôle passe par Audit Trail et un inventaire des cartes sans groupe. Côté DSI, la carte de management des firewalls n'accepte que SSH et HTTPS depuis les bastions des PGW ; les cartes hub, egress et heartbeat n'ont pas de groupe (le firewall filtre). Un security group sur une carte Private Network y désactive l'IPv6.
+- Le trafic d'Edge Services vers les Load Balancers est en HTTP, non chiffré.
+- Scaleway n'expose aucun timer BGP, BFD ou DPD : la vitesse de bascule entre les deux tunnels VPN se règle sur la passerelle on-prem.
+- Quand une BU est ajoutée, les VM déjà démarrées reçoivent ses routes par DHCP en une heure au plus.
+- Le quota de peering est de 512 connecteurs par organisation : 127 BU sans bypass, 85 avec.
+- Les journaux restent locaux sauf si vous renseignez `firewall.syslog` ou déployez le relais d'observabilité.

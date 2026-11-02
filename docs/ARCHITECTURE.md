@@ -1,6 +1,6 @@
 # Architecture
 
-Comment le trafic circule, qui le filtre, comment on administre les firewalls, comment ils naissent et comment ils basculent. Le déploiement est dans le [README](../README.md).
+Pour déployer, voir le [README](../README.md).
 
 ## Flux
 
@@ -29,11 +29,11 @@ Les nœuds n'ont aucune IP publique. Leur port de management (`port2`) est sur l
 
 ## Premier démarrage
 
-Personne ne pousse la configuration d'un firewall : il la lit lui-même. Terraform range dans les user data cloud-init de l'Instance la licence du nœud, le compte `admin` avec ses clés SSH et toute la plateforme (management, interfaces, routes, HA). Scaleway présente ces user data à une Instance sans IP publique sur un CD-ROM NoCloud. FortiOS (7.4.5+ ou 7.6.0+) le lit au premier démarrage, installe la licence, redémarre et applique la CLI. Il ne le relira plus : on part donc toujours du qcow2 d'usine, et un changement de plateforme se fait en reconstruisant le nœud.
+Terraform range dans les user data cloud-init de l'Instance la licence du nœud, le compte `admin` avec ses clés SSH et toute la plateforme (management, interfaces, routes, HA). Scaleway présente ces user data à une Instance sans IP publique sur un CD-ROM NoCloud. FortiOS (7.4.5+ ou 7.6.0+) le lit au premier démarrage, installe la licence, redémarre et applique la CLI. Il ne le relit jamais ensuite. On part donc toujours du qcow2 d'usine, et on reconstruit le nœud pour changer sa plateforme.
 
 <img alt="Premier démarrage : Terraform écrit les user data, FortiOS les lit une seule fois sur le CD-ROM NoCloud, puis fortigate.sh vérifie le nœud par le bastion et pousse la politique." src="lz-provisioning.svg">
 
-Il faut compter 3 min 30 par nœud, les deux en parallèle. `fortigate.sh ready` vérifie ensuite le nœud par le bastion : clé `admin` acceptée, licence valide, ports dans le bon ordre. `fortigate.sh policy` pousse alors la politique sur le primaire, qui la synchronise. Les user data contiennent la licence et les mots de passe, et quiconque lit les Instances du projet DSI peut les lire : réservez ce projet aux opérateurs.
+Un nœud est prêt en 3 min 30 environ, et les deux démarrent en parallèle. `fortigate.sh ready` vérifie alors le nœud par le bastion : clé `admin` acceptée, licence valide, ports dans le bon ordre. `fortigate.sh policy` pousse alors la politique sur le primaire, qui la synchronise. Les user data contiennent la licence et les mots de passe, lisibles par quiconque a accès aux Instances du projet DSI : réservez ce projet aux opérateurs.
 
 ## Bascule
 

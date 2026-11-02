@@ -1,12 +1,12 @@
 # Landing zone Scaleway avec firewall FortiGate
 
-Socle réseau d'une organisation Scaleway, écrit en Terraform et déployé avec Terragrunt. Un projet central, la **DSI**, héberge deux firewalls FortiGate en haute disponibilité FGCP actif-passif (un par zone), la sortie Internet, le VPN et Interlink. Chaque **BU** (unité métier) a son propre projet, créé et détruit à la demande, avec son propre state : ajouter une BU ne touche ni aux firewalls ni aux autres BU.
+Socle réseau d'une organisation Scaleway, écrit en Terraform et déployé avec Terragrunt. Un projet central, la DSI, héberge deux firewalls FortiGate en haute disponibilité FGCP actif-passif (un par zone), la sortie Internet, le VPN et Interlink. Chaque BU (unité métier) a son propre projet, créé et détruit à la demande, avec son propre state : ajouter une BU ne touche ni aux firewalls ni aux autres BU.
 
-**Garantie.** Tout flux qui sort d'une BU, ou qui y entre depuis l'extérieur, passe par le firewall central. Seule exception : le contournement Interlink optionnel (`hybrid_bypass`). Ce qu'une BU expose elle-même (Load Balancer, IP publique) n'est pas couvert : voir « Exposition directe » dans les [limites](docs/OPERATIONS.md#limites-connues).
+Tout flux qui sort d'une BU, ou qui y entre depuis l'extérieur, passe par le firewall central. Seule exception : le contournement Interlink optionnel (`hybrid_bypass`). Ce qu'une BU expose elle-même (Load Balancer, IP publique) n'est pas couvert : voir « Exposition directe » dans les [limites](docs/OPERATIONS.md#limites-connues).
 
 <img alt="Vue d'ensemble : tout flux qui sort d'une BU traverse la paire FortiGate du hub ; les firewalls n'ont aucune IP publique." src="docs/lz-overview.svg">
 
-Chaque firewall se configure seul à son premier démarrage, à partir des user data cloud-init de son Instance : ni image à construire, ni script de configuration. Terraform vérifie ensuite le nœud par le bastion et pousse la politique.
+Les firewalls démarrent sur l'image d'usine de Fortinet et se configurent seuls au premier démarrage, avec les user data cloud-init de leur Instance. Terraform vérifie ensuite chaque nœud par le bastion et pousse la politique.
 
 <img alt="Premier démarrage : Terraform écrit les user data, FortiOS les lit une seule fois sur le CD-ROM NoCloud, puis fortigate.sh vérifie le nœud par le bastion et pousse la politique." src="docs/lz-provisioning.svg">
 
@@ -26,7 +26,7 @@ docs/                     documentation
 
 ## Prérequis
 
-**Outils.**
+### Outils
 
 | Outil | Version minimale | Pourquoi |
 |---|---|---|
@@ -37,15 +37,19 @@ docs/                     documentation
 | CLI `scw` | récente | doit être sur la machine qui déploie : elle démarre les firewalls une fois leurs cartes réseau posées et libère les VIP à la destruction |
 | `ssh` | | contrôle des firewalls neufs et politique, par le bastion (Public Gateway) ; le poste doit figurer dans `admin_cidrs` |
 
-**Droits Scaleway.**
+### Droits Scaleway
 
-- Une clé API d'**organisation** : elle crée projets, applications, politiques et clés IAM, et gère VPC, Instances, Block Storage, IPAM, Public Gateways, VPN, Load Balancers et Edge Services. Les connecteurs de peering du Hub sont créés dans le projet DSI depuis chaque BU, d'où la clé d'organisation. Une clé d'administrateur convient.
-- Un bucket Object Storage **privé et versionné** pour les states : `scw object bucket update <bucket> enable-versioning=true region=fr-par`. Le state DSI contient des secrets : réservez le bucket aux opérateurs.
+- Une clé API d'organisation : elle crée projets, applications, politiques et clés IAM, et gère VPC, Instances, Block Storage, IPAM, Public Gateways, VPN, Load Balancers et Edge Services. Les connecteurs de peering du Hub sont créés dans le projet DSI depuis chaque BU, d'où la clé d'organisation. Une clé d'administrateur convient.
+- Un bucket Object Storage privé et versionné pour les states : `scw object bucket update <bucket> enable-versioning=true region=fr-par`. Le state DSI contient des secrets : réservez le bucket aux opérateurs.
 - Les zones `fr-par-1` et `fr-par-2` pour les firewalls (`fr-par-3` n'a ni Public Gateway ni Load Balancer).
 
-**Image FortiGate et licences.** Il n'y a pas d'image à construire : on importe tel quel le qcow2 FortiOS KVM de Fortinet (étape 1 du déploiement). Chaque nœud a sa propre licence FortiGate-VM (BYOL, fichier `.lic` jamais versionné).
+### Image FortiGate et licences
 
-**Variables d'environnement.** Ne les versionnez jamais.
+Le qcow2 FortiOS KVM de Fortinet s'importe tel quel, sans modification (étape 1 du déploiement). Chaque nœud a sa propre licence FortiGate-VM (BYOL, fichier `.lic` jamais versionné).
+
+### Variables d'environnement
+
+Ne les versionnez jamais.
 
 ```bash
 export SCW_ACCESS_KEY=<clé> SCW_SECRET_KEY=<secret> SCW_DEFAULT_ORGANIZATION_ID=<id-organisation>
@@ -58,7 +62,7 @@ export TG_REGION=fr-par TG_ZONE=fr-par-1   # facultatif : ce sont les défauts
 
 ## Déploiement
 
-Les commandes se lancent depuis `landing-zone/`.
+Les commandes se lancent depuis le dossier de ce README.
 
 1. Importer le qcow2 FortiOS KVM d'usine (le `fortios.qcow2` du zip Fortinet, déposé dans un bucket de la région), un snapshot par zone :
 
@@ -113,7 +117,9 @@ Les commandes se lancent depuis `landing-zone/`.
 
 6. Vérifier : `terragrunt output --working-dir live/bus/<bu>` (adresses et projet de la BU) et `scw vpc vpc-connector list region=fr-par` (tous les connecteurs doivent être `peered`).
 
-**Tests hors ligne** (aucun appel à Scaleway), un module à la fois :
+### Tests hors ligne
+
+Ils n'appellent pas Scaleway. Un module à la fois :
 
 ```bash
 terraform -chdir=modules/dsi init -backend=false && terraform -chdir=modules/dsi test
