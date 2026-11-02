@@ -28,11 +28,17 @@ modules/observability      relais syslog vers Cockpit (optionnel)
 
 ## Prérequis
 
-- Terraform 1.10 ou plus récent, la CLI `scw` et `ssh` sur la machine qui déploie. `scw` démarre les firewalls une fois leurs cartes posées et efface leurs user data. `ssh` contrôle les nœuds par le bastion, depuis une adresse de `admin_cidrs`.
-- Une clé API d'organisation, d'administrateur par exemple : Terraform crée le projet, ainsi que les applications et clés IAM de la bascule.
-- Un bucket Object Storage privé et versionné pour le state. Il contient le mot de passe `admin`, les licences et les clés API de bascule.
-- Une licence FortiGate-VM BYOL par nœud (fichier `.lic`, jamais versionné).
+À réunir avant le premier déploiement :
+
+- Une organisation Scaleway et une clé API d'organisation, d'administrateur par exemple : Terraform crée le projet, ainsi que les applications et clés IAM de la bascule.
+- Deux licences FortiGate-VM BYOL, une par nœud, de même niveau : une paire FGCP doit avoir le même modèle. Le niveau suit le nombre de vCPU du type d'instance : FG-VM02 pour `POP2-2C-8G`, le type par défaut, FG-VM04 pour 4 vCPU. Chaque licence s'enregistre sur le portail FortiCare (support.fortinet.com), qui fournit son fichier `.lic`, à ne jamais versionner. La landing zone n'utilise aucun service FortiGuard payant (antivirus, IPS, filtrage web) : une licence sans bundle suffit.
+- L'image FortiOS pour KVM : le zip `FGT_VM64_KVM-…kvm.zip` de la page Firmware Images de FortiCare, dont on extrait `fortios.qcow2`. La version validée est la 8.0.2. Le qcow2 se dépose dans un bucket Object Storage de la région `fr-par`, celui du state convient, puis l'étape 1 du déploiement l'importe.
+- Un bucket Object Storage privé et versionné pour le state, en `fr-par` (commande ci-dessous). Il contient le mot de passe `admin`, les licences et les clés API de bascule.
+- L'adresse IP publique fixe des administrateurs et de la machine qui déploie (`admin_cidrs`), et leur clé SSH publique (`admin_ssh_public_keys`).
 - Les zones `fr-par-1` et `fr-par-2` (`fr-par-3` n'a ni Public Gateway ni Load Balancer).
+- Selon les options choisies : la main sur le DNS des FQDN publiés par Edge Services, pour y créer un CNAME ; pour `vpn`, une passerelle on-prem IPsec avec BGP, son IP publique et son ASN ; pour `interlink`, un lien commandé auprès d'un partenaire Scaleway, ou un lien dédié, avec les identifiants du PoP.
+
+Sur la machine qui déploie : Terraform 1.10 ou plus récent, la CLI `scw`, `ssh`, et la CLI `aws` pour déposer le qcow2. `scw` démarre les firewalls une fois leurs cartes posées et efface leurs user data. `ssh` contrôle les nœuds par le bastion, depuis une adresse de `admin_cidrs`.
 
 ```bash
 export SCW_ACCESS_KEY=<clé> SCW_SECRET_KEY=<secret> SCW_DEFAULT_ORGANIZATION_ID=<id-organisation>
