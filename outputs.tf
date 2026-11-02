@@ -1,3 +1,8 @@
+output "project_id" {
+  description = "The project of the hub and the spokes."
+  value       = module.hub.project_id
+}
+
 output "access" {
   description = "SSH and WebUI access to the firewalls through the bastions."
   value       = module.hub.access
