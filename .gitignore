@@ -1,0 +1,15 @@
+.terragrunt-cache/
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+.env
+# Lock files from local `terraform test` runs of the modules
+modules/*/.terraform.lock.hcl
+
+# Secrets and local files: never commit
+*.lic
+backend.hcl
+terraform.tfvars
+*.auto.tfvars
+.DS_Store

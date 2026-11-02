@@ -1,0 +1,30 @@
+# BU registry - single source of truth for the address plan and the network
+# policy the DSI imposes on each BU.
+#
+# index (0-1023)      permanent and unique: sets the BU CIDRs
+#                     (Pub /22 from 10.64.0.0/12, Private /21 from 10.96.0.0/11).
+#                     Never renumber a live BU; keep the index of a destroyed
+#                     BU reserved until its project is fully gone.
+# hybrid_bypass       peer the BU Private VPC with the Hybrid VPC (Interlink, no
+#                     firewall inspection). Costs 2 extra peering connectors.
+# edge_services_plan  Edge Services subscription of the BU project (starter,
+#                     professional...), required by endpoints using Edge.
+# nacl_inbound        flows allowed INTO the BU from outside it (on-prem, DSI
+#                     LB, other BUs once the firewall allows them). The BU
+#                     NACLs drop every other inbound connection, except to
+#                     the return range (TCP/UDP 32768-65535, open to all).
+#                     { to: pub|private, source: CIDR, protocol: ANY|TCP|UDP|ICMP,
+#                       port: 0 = all, port_end: optional range end }
+#                     The same flows open the BU baseline security groups.
+# intra_pn            baseline security groups accept traffic inside each
+#                     Private Network (default true); false closes it.
+
+genomic:
+  index: 1
+  hybrid_bypass: true
+  edge_services_plan: starter
+  nacl_inbound:
+    - to: private
+      source: 10.0.4.0/24 # DSI Egress (LB / Edge Services of the DSI)
+      port: 8080
+      description: DSI load balancers to genomic backends

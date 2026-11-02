@@ -1,0 +1,55 @@
+// Managed by Terraform (modules/observability). OPNsense syslog (RFC5424) -> Cockpit logs.
+
+loki.relabel "syslog" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__syslog_message_hostname"]
+    target_label  = "host"
+  }
+  rule {
+    source_labels = ["__syslog_message_app_name"]
+    target_label  = "program"
+  }
+  rule {
+    source_labels = ["__syslog_message_severity"]
+    target_label  = "level"
+  }
+}
+
+loki.source.syslog "opnsense" {
+  listener {
+    address       = "${ip}:514"
+    protocol      = "udp"
+    syslog_format = "rfc5424"
+    labels        = { job = "opnsense" }
+  }
+  listener {
+    address       = "${ip}:514"
+    protocol      = "tcp"
+    syslog_format = "rfc5424"
+    labels        = { job = "opnsense" }
+  }
+
+  relabel_rules = loki.relabel.syslog.rules
+  forward_to    = [${keep_filterlog ? "loki.write.cockpit.receiver" : "loki.process.volume.receiver"}]
+}
+%{ if !keep_filterlog ~}
+
+// The packet log is by far the largest volume: dropped unless keep_filterlog.
+loki.process "volume" {
+  stage.match {
+    selector = "{program=\"filterlog\"}"
+    action   = "drop"
+  }
+
+  forward_to = [loki.write.cockpit.receiver]
+}
+%{ endif ~}
+
+loki.write "cockpit" {
+  endpoint {
+    url     = "${push_url}"
+    headers = { "X-Token" = sys.env("COCKPIT_TOKEN") }
+  }
+}

@@ -1,0 +1,21 @@
+#!/usr/sbin/nft -f
+flush ruleset
+
+table inet lz_obs {
+  chain input {
+    type filter hook input priority 0; policy drop;
+    iif lo accept
+    ct state established,related accept
+    ct state invalid drop
+    meta l4proto { icmp, ipv6-icmp } accept
+    udp sport 67 udp dport 68 accept
+    ip saddr { ${join(", ", pgw_ips)} } tcp dport 22 accept
+    ip saddr { ${join(", ", senders)} } udp dport 514 accept
+    ip saddr { ${join(", ", senders)} } tcp dport 514 accept
+  }
+
+  # Not a router.
+  chain forward {
+    type filter hook forward priority 0; policy drop;
+  }
+}

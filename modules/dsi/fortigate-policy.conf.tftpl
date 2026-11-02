@@ -1,0 +1,108 @@
+config system settings
+    set tcp-session-without-syn enable
+end
+config firewall address
+%{ for c in cidrs ~}
+    edit "${addr[c]}"
+        set subnet ${c}
+    next
+%{ endfor ~}
+end
+config firewall addrgrp
+%{ for name, members in aliases ~}
+    edit "${name}"
+        set member ${join(" ", [for c in members : "\"${addr[c]}\""])}
+    next
+%{ endfor ~}
+end
+%{ if length(services) > 0 ~}
+config firewall service custom
+%{ for s in services ~}
+    edit "${s.name}"
+        set ${s.protocol}-portrange ${s.range}
+    next
+%{ endfor ~}
+end
+%{ endif ~}
+config firewall policy
+%{ for r in rules ~}
+    edit ${r.id}
+        set name "lz-${r.id}"
+        set comments "${r.description}"
+        set srcintf "${r.srcintf}"
+        set dstintf "${r.dstintf}"
+        set srcaddr "${r.srcaddr}"
+        set dstaddr "${r.dstaddr}"
+        set dstaddr-negate ${r.destination_not ? "enable" : "disable"}
+        set action ${r.action == "pass" ? "accept" : "deny"}
+        set schedule "always"
+        set service "${r.service}"
+        set logtraffic ${r.log ? "all" : "disable"}
+%{ if r.action == "pass" ~}
+        set nat ${r.nat ? "enable" : "disable"}
+        set tcp-session-without-syn ${r.state == "sloppy" ? "all" : "none"}
+%{ endif ~}
+    next
+%{ endfor ~}
+end
+config system automation-trigger
+    edit "lz-became-primary"
+        set description "This node just became the FGCP primary"
+        set event-type event-log
+        set logid 37892
+        config fields
+            edit 1
+                set name "ha_role"
+                set value "primary"
+            next
+        end
+    next
+    edit "lz-hourly"
+        set description "Reconcile the data VIPs in IPAM with the primary"
+        set trigger-type scheduled
+        set trigger-frequency hourly
+        set trigger-minute 7
+    next
+end
+config system automation-action
+    edit "lz-ipam-follow"
+        set description "Move the data VIPs in IPAM to this node (failover function)"
+        set action-type webhook
+        set protocol https
+        set method post
+        set uri "${failover_host}/"
+        set port 443
+        set http-body "{\"node\":\"%%log.devname%%\"}"
+        config http-headers
+            edit 1
+                set key "X-Auth-Token"
+                set value "@@FAILOVER_KEY@@"
+            next
+        end
+    next
+end
+config system automation-stitch
+    edit "lz-ipam-follow"
+        set description "Data VIPs follow the new primary; repeated, the function is idempotent"
+        set status enable
+        set trigger "lz-became-primary"
+        config actions
+%{ for i, d in [0, 10, 30] ~}
+            edit ${i + 1}
+                set action "lz-ipam-follow"
+                set delay ${d}
+            next
+%{ endfor ~}
+        end
+    next
+    edit "lz-ipam-reconcile"
+        set description "Safety net for a lost failover call"
+        set status enable
+        set trigger "lz-hourly"
+        config actions
+            edit 1
+                set action "lz-ipam-follow"
+            next
+        end
+    next
+end

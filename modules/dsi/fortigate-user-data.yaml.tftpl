@@ -1,0 +1,16 @@
+#cloud-config
+# cloud-init user data of a FortiGate node, read once at its first boot (firewall.tf).
+fortigate: |
+  config system admin
+      edit "admin"
+          set password "${admin_password}"
+%{ for i, k in ssh_keys ~}
+          set ssh-public-key${i + 1} "${k}"
+%{ endfor ~}
+      next
+  end
+  ${indent(2, platform)}
+%{ if license != null ~}
+license: |
+  ${indent(2, license)}
+%{ endif ~}

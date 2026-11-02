@@ -1,0 +1,32 @@
+#cloud-config
+disable_root: false
+ssh_pwauth: false
+ssh_authorized_keys:
+%{ for k in ssh_keys ~}
+  - ${jsonencode(k)}
+%{ endfor ~}
+write_files:
+  - path: /opt/lz-obs/bootstrap.sh
+    permissions: "0755"
+    content: |
+      ${indent(6, bootstrap)}
+  - path: /opt/lz-obs/config.alloy
+    permissions: "0644"
+    content: |
+      ${indent(6, config_alloy)}
+  - path: /opt/lz-obs/nftables.conf
+    permissions: "0644"
+    content: |
+      ${indent(6, nftables)}
+  - path: /etc/sysctl.d/99-lz-obs.conf
+    permissions: "0644"
+    content: |
+      net.ipv4.ip_forward = 0
+  # runcmd never runs on the 2nd boot (NoCloud seed): a per-boot launcher
+  # retries the bootstrap until it succeeds once.
+  - path: /var/lib/cloud/scripts/per-boot/lz-obs
+    permissions: "0755"
+    content: |
+      #!/bin/sh
+      [ -e /var/lib/lz-obs.done ] && exit 0
+      ALLOY_VERSION=${alloy_version} exec /opt/lz-obs/bootstrap.sh

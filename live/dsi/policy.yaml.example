@@ -1,0 +1,33 @@
+# Copy to policy.yaml (same folder) to extend the firewall policy; it is read
+# by terragrunt.hcl. Policy changes are pulled live by the firewalls within a
+# minute, no rebuild.
+#
+# Ordering: rules are evaluated top-down, first match wins (quick rules). Your
+# rules are rendered BEFORE the default ones ([EW] inter-BU block, [DSI], [VPN],
+# [EGRESS]), so an exception to the inter-BU block works as is. Rule
+# descriptions must be unique and free of <, > and &.
+#
+# aliases: name -> CIDRs. Built-in aliases usable in rules: BU_NETS,
+# DSI_EGRESS_NET, ONPREM_VPN, EGRESS_PGWS, internal_nets.
+#
+# rules: action pass|block, interface hub (default)|egress, protocol
+# any|tcp|udp|icmp, state sloppy (default)|keep, optional port / port_end
+# (tcp and udp only). source / destination: alias, CIDR or any.
+#
+# nat_outbound: SNAT on the egress interface; target defaults to the egress
+# data VIP.
+#
+# aliases:
+#   BU_GENOMIC: ["10.96.8.0/21"] # Private of the BU with index 1
+#   BU_HR: ["10.96.16.0/21"]     # Private of the BU with index 2
+#   (a BU's CIDRs: terragrunt output cidrs --working-dir live/bus/<name>)
+# rules:
+#   - description: "Genomic reaches HR over HTTPS"
+#     action: pass
+#     source: BU_GENOMIC
+#     destination: BU_HR
+#     protocol: tcp
+#     port: 443
+# nat_outbound:
+#   - description: "Genomic SNAT to the Internet"
+#     source: BU_GENOMIC
