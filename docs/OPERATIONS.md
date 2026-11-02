@@ -54,7 +54,7 @@ Supprimez d'abord les ressources créées hors Terraform dans le projet (instanc
 terraform destroy
 ```
 
-Si l'erreur `resource is still in use` apparaît, supprimez les security groups « Default » que Scaleway a créés dans le projet, puis relancez :
+Si l'erreur `resource is still in use` apparaît, supprimez les security groups « Default » que Scaleway a créés dans le projet (`terraform output -raw project_id`), puis relancez :
 
 ```bash
 scw instance security-group list zone=fr-par-1 project-id=<id-projet>
