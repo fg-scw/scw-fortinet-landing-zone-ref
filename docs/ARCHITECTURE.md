@@ -9,15 +9,18 @@ Pour déployer, voir le [README](../README.md).
 | spoke → Internet | Private → Pub → Hub → firewall → Public Gateway | firewall, NAT |
 | spoke A → spoke B | → Hub → firewall | bloqué par défaut ; NACL du spoke cible |
 | Pub ↔ Private (même spoke) | peering direct | NACL |
-| on-prem (VPN) ↔ spoke | VPN → Egress → Hub → firewall | firewall et `nacl_inbound` |
+| on-prem (VPN) ↔ spoke | VPN → Egress → Hub → firewall | règles de `policy.yaml` (aucune par défaut) et `nacl_inbound` |
 | on-prem (Interlink) ↔ Private | Interlink → Hybrid → Private | sans firewall (`hybrid_bypass`) |
-| Internet → spoke | Load Balancer du spoke, Edge Services en option | hors firewall |
+| Internet → exposition d'un spoke | Edge Services → Load Balancer du spoke | TLS et WAF, hors firewall |
+| Internet → exposition du hub | Edge Services → Load Balancer du hub (Egress) → firewall → backend | TLS et WAF ; règle `[HUB]` de l'exposition |
 
 ## Adressage
 
 Le hub occupe `10.0.4.0/24` (Egress), `10.0.5.0/24` (Hybrid), `10.0.6.0/24` (Mgmt), `172.16.0.0/24` (Hub) et `10.255.0.0/24` (heartbeat HA). Chaque spoke prend sa place dans `10.64.0.0/10` d'après son `index` : un `/22` Pub dans `10.64.0.0/12` et un `/21` Private dans `10.96.0.0/11`. Le spoke d'index 1 a ainsi `10.64.4.0/22` et `10.96.8.0/21`. Si ces plages chevauchent l'on-prem, changez les arguments `cidrs` et `spoke_supernet` de `module "hub"` avant le premier apply.
 
 ## Filtrage
+
+La politique du firewall refuse tout ce qu'elle n'ouvre pas. Par défaut, elle bloque le trafic entre spokes et laisse sortir les spokes vers Internet. Le réseau Egress du hub n'atteint un spoke que sur les backends des expositions du hub : une règle `[HUB]` par exposition, limitée aux IP et au port de ses backends. Les flux on-prem et les exceptions entre spokes se déclarent dans `policy.yaml`. Une exposition passe toujours par Edge Services, qui porte le certificat TLS et le WAF, et son Load Balancer n'accepte que les IP d'Edge Services.
 
 <img alt="Filtrage : un flux vers une VM de spoke franchit le FortiGate entre VPC, la NACL à la frontière du VPC, puis le security group de la carte." src="lz-security.svg">
 

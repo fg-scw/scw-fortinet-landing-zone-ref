@@ -8,30 +8,24 @@ locals {
 
   # Customer rules (var.policy.rules) go before the default ones: the first
   # matching policy wins, so an exception to the inter-spoke block precedes it.
+  # Default deny: the hub reaches a spoke only on the backends of its
+  # endpoints, on-prem flows are customer rules.
   default_rules = concat([
     merge(local.rule_defaults, {
       action      = "block", interface = "hub", out = "hub", source = "SPOKE_NETS", destination = "SPOKE_NETS"
       description = "[EW] SRC=SPOKE_NETS DST=SPOKE_NETS ACT=BLOCK (inter-spoke, add explicit exceptions above)"
     }),
-    merge(local.rule_defaults, {
-      action      = "pass", interface = "hub", out = "hub", source = "HUB_EGRESS_NET", destination = "SPOKE_NETS"
-      description = "[HUB] SRC=HUB_EGRESS_NET DST=SPOKE_NETS ACT=PASS (hub LB / Edge Services)"
-    }),
-    ], length(local.vpn_cidrs) == 0 ? [] : [
-    merge(local.rule_defaults, {
-      action      = "pass", interface = "hub", out = "hub", source = "ONPREM_VPN", destination = "SPOKE_NETS"
-      description = "[VPN] SRC=ONPREM_VPN DST=SPOKE_NETS ACT=PASS"
-    }),
-    merge(local.rule_defaults, {
-      action      = "pass", interface = "hub", out = "hub", source = "SPOKE_NETS", destination = "ONPREM_VPN"
-      description = "[VPN] SRC=SPOKE_NETS DST=ONPREM_VPN ACT=PASS"
-    }),
     ], [
-    # SNAT to the egress interface address, i.e. the egress data VIP. One
-    # log line per spoke session would fill the disk: no traffic log.
+    for name, b in var.endpoint_backends : merge(local.rule_defaults, {
+      action      = "pass", interface = "hub", out = "hub", source = "HUB_EGRESS_NET", destination = "lz-ep-${name}", protocol = "tcp", port = b.port
+      description = "[HUB] SRC=HUB_EGRESS_NET DST=${name} TCP/${b.port} ACT=PASS (hub endpoint ${name})"
+    })
+    ], [
+    # SNAT to the egress interface address, i.e. the egress data VIP. Traffic
+    # log only with a remote collector: on the node alone it fills the disk.
     merge(local.rule_defaults, {
       action      = "pass", interface = "hub", out = "egress", source = "SPOKE_NETS", destination = "internal_nets", destination_not = true
-      description = "[EGRESS] SRC=SPOKE_NETS DST=INTERNET ACT=PASS NAT=EGRESS_DATA_VIP", log = false, nat = true
+      description = "[EGRESS] SRC=SPOKE_NETS DST=INTERNET ACT=PASS NAT=EGRESS_DATA_VIP", log = length(local.syslog) > 0, nat = true
     }),
   ])
 
@@ -54,7 +48,9 @@ locals {
     HUB_EGRESS_NET = [var.cidrs.egress]
     EGRESS_PGWS    = [for p in values(local.pgw) : "${p.ip}/32"]
     internal_nets  = local.internal_nets
-  }, length(local.vpn_cidrs) == 0 ? {} : { ONPREM_VPN = local.vpn_cidrs })
+    }, length(local.vpn_cidrs) == 0 ? {} : { ONPREM_VPN = local.vpn_cidrs },
+    { for name, b in var.endpoint_backends : "lz-ep-${name}" => [for ip in b.server_ips : "${ip}/32"] },
+  )
 
   fgt_aliases = merge(local.builtin_aliases, var.policy.aliases)
 
@@ -70,7 +66,7 @@ locals {
   )
 
   fgt_services = distinct([
-    for r in var.policy.rules : { name = "lz-${r.protocol}-${r.port}${r.port_end == null ? "" : "-${r.port_end}"}", protocol = r.protocol, range = r.port_end == null ? tostring(r.port) : "${r.port}-${r.port_end}" }
+    for r in local.policy_rules : { name = "lz-${r.protocol}-${r.port}${r.port_end == null ? "" : "-${r.port_end}"}", protocol = r.protocol, range = r.port_end == null ? tostring(r.port) : "${r.port}-${r.port_end}" }
     if r.port != null
   ])
 

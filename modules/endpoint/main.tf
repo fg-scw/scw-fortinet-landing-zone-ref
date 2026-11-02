@@ -2,10 +2,6 @@
 # backends on the attached Private Network or any VPC routed from it.
 # The Edge Services plan is a per-project subscription owned by the caller.
 
-locals {
-  edge = var.config.edge != null
-}
-
 resource "scaleway_lb_ip" "this" {
   for_each = toset(var.config.zones)
 
@@ -63,7 +59,7 @@ resource "scaleway_lb_frontend" "this" {
 
 # Behind Edge Services, the LB only answers Edge Services IPs.
 resource "scaleway_lb_acl" "allow_edge" {
-  for_each = local.edge ? scaleway_lb_frontend.this : {}
+  for_each = scaleway_lb_frontend.this
 
   name        = "allow-edge-services"
   frontend_id = each.value.id
@@ -74,7 +70,7 @@ resource "scaleway_lb_acl" "allow_edge" {
 }
 
 resource "scaleway_lb_acl" "deny_others" {
-  for_each = local.edge ? scaleway_lb_frontend.this : {}
+  for_each = scaleway_lb_frontend.this
 
   name        = "deny-others"
   frontend_id = each.value.id
@@ -87,16 +83,12 @@ resource "scaleway_lb_acl" "deny_others" {
 # --- Edge Services pipeline: DNS -> TLS -> WAF -> LBs ------------------------
 
 resource "scaleway_edge_services_pipeline" "this" {
-  count = local.edge ? 1 : 0
-
   name       = var.name
   project_id = var.project_id
 }
 
 resource "scaleway_edge_services_backend_stage" "this" {
-  count = local.edge ? 1 : 0
-
-  pipeline_id = scaleway_edge_services_pipeline.this[0].id
+  pipeline_id = scaleway_edge_services_pipeline.this.id
   project_id  = var.project_id
 
   dynamic "lb_backend_config" {
@@ -114,36 +106,28 @@ resource "scaleway_edge_services_backend_stage" "this" {
 }
 
 resource "scaleway_edge_services_waf_stage" "this" {
-  count = local.edge ? 1 : 0
-
-  pipeline_id      = scaleway_edge_services_pipeline.this[0].id
+  pipeline_id      = scaleway_edge_services_pipeline.this.id
   project_id       = var.project_id
-  backend_stage_id = scaleway_edge_services_backend_stage.this[0].id
+  backend_stage_id = scaleway_edge_services_backend_stage.this.id
   mode             = var.config.edge.waf_mode
   paranoia_level   = var.config.edge.paranoia_level
 }
 
 resource "scaleway_edge_services_tls_stage" "this" {
-  count = local.edge ? 1 : 0
-
-  pipeline_id         = scaleway_edge_services_pipeline.this[0].id
+  pipeline_id         = scaleway_edge_services_pipeline.this.id
   project_id          = var.project_id
-  waf_stage_id        = scaleway_edge_services_waf_stage.this[0].id
+  waf_stage_id        = scaleway_edge_services_waf_stage.this.id
   managed_certificate = true
 }
 
 resource "scaleway_edge_services_dns_stage" "this" {
-  count = local.edge ? 1 : 0
-
-  pipeline_id  = scaleway_edge_services_pipeline.this[0].id
+  pipeline_id  = scaleway_edge_services_pipeline.this.id
   project_id   = var.project_id
-  tls_stage_id = scaleway_edge_services_tls_stage.this[0].id
+  tls_stage_id = scaleway_edge_services_tls_stage.this.id
   fqdns        = var.config.edge.fqdns
 }
 
 resource "scaleway_edge_services_head_stage" "this" {
-  count = local.edge ? 1 : 0
-
-  pipeline_id   = scaleway_edge_services_pipeline.this[0].id
-  head_stage_id = scaleway_edge_services_dns_stage.this[0].id
+  pipeline_id   = scaleway_edge_services_pipeline.this.id
+  head_stage_id = scaleway_edge_services_dns_stage.this.id
 }

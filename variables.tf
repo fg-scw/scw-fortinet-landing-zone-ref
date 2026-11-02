@@ -32,7 +32,7 @@ variable "firewall" {
 }
 
 variable "edge_services_plan" {
-  description = "Edge Services subscription of the project, for endpoints using Edge. null = none."
+  description = "Edge Services subscription of the project, required by endpoints. null = none."
   type        = string
   default     = null
 }
@@ -66,6 +66,11 @@ variable "endpoints" {
   validation {
     condition     = alltrue([for e in values(var.endpoints) : e.owner == "hub" || contains(keys(var.spokes), e.owner)])
     error_message = "endpoints.*.owner must be \"hub\" or a key of spokes."
+  }
+
+  validation {
+    condition     = length(var.endpoints) == 0 || var.edge_services_plan != null
+    error_message = "Endpoints are published through Edge Services: set edge_services_plan."
   }
 }
 

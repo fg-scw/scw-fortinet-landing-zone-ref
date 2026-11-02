@@ -208,15 +208,45 @@ run "default_policy" {
     condition = alltrue([
       can(regex("(?s)edit 1\\s+set name \"lz-1\"\\s+set comments \"\\[EW\\][^\"]*\"\\s+set srcintf \"port3\"\\s+set dstintf \"port3\"\\s+set srcaddr \"SPOKE_NETS\"\\s+set dstaddr \"SPOKE_NETS\".*?set action deny", terraform_data.fw_policy.input)),
       can(regex("(?s)\\[EGRESS\\][^\"]*\"\\s+set srcintf \"port3\"\\s+set dstintf \"port5\"\\s+set srcaddr \"SPOKE_NETS\"\\s+set dstaddr \"internal_nets\"\\s+set dstaddr-negate enable\\s+set action accept.*?set logtraffic disable\\s+set nat enable", terraform_data.fw_policy.input)),
-      strcontains(terraform_data.fw_policy.input, "[VPN] SRC=ONPREM_VPN"),
+      !strcontains(terraform_data.fw_policy.input, "[VPN]") && !strcontains(terraform_data.fw_policy.input, "[HUB]"),
       strcontains(terraform_data.fw_policy.input, "set tcp-session-without-syn all"),
     ])
-    error_message = "Default policy: inter-spoke block first, then hub and VPN, then Internet egress with SNAT and no traffic log; transit is sloppy."
+    error_message = "Default deny: inter-spoke block, then Internet egress with SNAT (no traffic log without syslog); nothing from the hub or on-prem by default; transit is sloppy."
   }
 
   assert {
-    condition     = terraform_data.fw_policy.input == replace(terraform_data.fw_policy.input, "edit 6", "") && strcontains(terraform_data.fw_policy.input, "edit 5")
-    error_message = "With the VPN: 5 default policies, numbered from 1."
+    condition     = length(regexall("set name \"lz-[0-9]+\"", terraform_data.fw_policy.input)) == 2 && strcontains(terraform_data.fw_policy.input, "set name \"lz-2\"")
+    error_message = "With the VPN and no endpoint: 2 default policies, numbered from 1."
+  }
+}
+
+run "hub_reaches_endpoint_backends_only" {
+  command = plan
+
+  variables {
+    endpoint_backends = { api = { server_ips = ["10.96.8.10", "10.96.8.11"], port = 8080 } }
+  }
+
+  assert {
+    condition = alltrue([
+      can(regex("(?s)edit \"lz-ep-api\"\\s+set member \"net-10.96.8.10_32\" \"net-10.96.8.11_32\"", terraform_data.fw_policy.input)),
+      can(regex("(?s)edit 2\\s+set name \"lz-2\"\\s+set comments \"\\[HUB\\] SRC=HUB_EGRESS_NET DST=api TCP/8080[^\"]*\"\\s+set srcintf \"port3\"\\s+set dstintf \"port3\"\\s+set srcaddr \"HUB_EGRESS_NET\"\\s+set dstaddr \"lz-ep-api\".*?set action accept.*?set service \"lz-tcp-8080\"", terraform_data.fw_policy.input)),
+      can(regex("(?s)edit \"lz-tcp-8080\"\\s+set tcp-portrange 8080", terraform_data.fw_policy.input)),
+    ])
+    error_message = "A hub endpoint opens the hub egress network to its backend IPs, on its port only."
+  }
+}
+
+run "egress_logged_with_syslog" {
+  command = plan
+
+  variables {
+    syslog_relay_host = 5
+  }
+
+  assert {
+    condition     = can(regex("(?s)\\[EGRESS\\].*?set logtraffic all", terraform_data.fw_policy.input))
+    error_message = "With a remote collector, Internet sessions of the spokes are logged."
   }
 }
 

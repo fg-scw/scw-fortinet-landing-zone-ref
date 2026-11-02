@@ -21,6 +21,9 @@ module "hub" {
   vpn                   = var.vpn
   interlink             = var.interlink
   syslog_relay_host     = var.observability ? local.relay_host : null
+  endpoint_backends = {
+    for k, e in var.endpoints : k => { server_ips = e.config.backend.server_ips, port = e.config.backend.port } if e.owner == "hub"
+  }
 }
 
 module "spoke" {

@@ -36,7 +36,8 @@ modules/observability      relais syslog vers Cockpit (optionnel)
 - Un bucket Object Storage privé et versionné pour le state, en `fr-par` (commande ci-dessous). Il contient le mot de passe `admin`, les licences et les clés API de bascule.
 - L'adresse IP publique fixe des administrateurs et de la machine qui déploie (`admin_cidrs`), et leur clé SSH publique (`admin_ssh_public_keys`).
 - Les zones `fr-par-1` et `fr-par-2` (`fr-par-3` n'a ni Public Gateway ni Load Balancer).
-- Selon les options choisies : la main sur le DNS des FQDN publiés par Edge Services, pour y créer un CNAME ; pour `vpn`, une passerelle on-prem IPsec avec BGP, son IP publique et son ASN ; pour `interlink`, un lien commandé auprès d'un partenaire Scaleway, ou un lien dédié, avec les identifiants du PoP.
+- Pour publier des expositions, la main sur le DNS de leurs FQDN, pour y créer un CNAME vers Edge Services.
+- Selon les options choisies : pour `vpn`, une passerelle on-prem IPsec avec BGP, son IP publique et son ASN ; pour `interlink`, un lien commandé auprès d'un partenaire Scaleway, ou un lien dédié, avec les identifiants du PoP.
 
 Sur la machine qui déploie : Terraform 1.10 ou plus récent, la CLI `scw`, `ssh`, et la CLI `aws` pour déposer le qcow2. `scw` démarre les firewalls une fois leurs cartes posées et efface leurs user data. `ssh` contrôle les nœuds par le bastion, depuis une adresse de `admin_cidrs`.
 
@@ -77,7 +78,7 @@ scw object bucket create name=<bucket> region=fr-par enable-versioning=true     
    terraform output -raw fw_admin_password
    ```
 
-   Si une exposition utilise Edge Services, créez un CNAME de chaque FQDN vers son `edge_cname_target` (sortie `endpoints`), sans quoi le certificat n'est pas émis.
+   Créez un CNAME de chaque FQDN des expositions vers son `edge_cname_target` (sortie `endpoints`), sans quoi le certificat n'est pas émis.
 
 ## Tests
 

@@ -6,7 +6,7 @@ Après chaque modification : `terraform plan`, relecture, puis `terraform apply`
 
 Ajoutez une entrée à `spokes` dans `terraform.tfvars`, avec un `index` unique entre 0 et 1023, puis appliquez. Le firewall n'est pas modifié. Ne changez jamais l'`index` d'un spoke existant : il fixe ses adresses.
 
-Dans la même entrée, `nacl_inbound` ouvre un flux entrant et `hybrid_bypass = true` relie le spoke à Interlink (il faut alors `interlink`). Edge Services s'active pour tout le projet, avec `edge_services_plan`.
+Dans la même entrée, `nacl_inbound` ouvre un flux entrant et `hybrid_bypass = true` relie le spoke à Interlink (il faut alors `interlink`). Toute exposition passe par Edge Services : `edge_services_plan` est requis dès que `endpoints` en contient une.
 
 ## Retirer un spoke
 
@@ -14,7 +14,7 @@ Supprimez d'abord ce qui est attaché aux Private Networks du spoke (instances, 
 
 ## Changer la politique du firewall
 
-Modifiez `policy.yaml` (format et exemples dans `policy.yaml.example`), puis appliquez. Les règles sont poussées sur le primaire FGCP, qui synchronise le secondaire, sans redémarrage. Un réglage fait dans le WebUI est écrasé au push suivant. La variable `policy_file` change le chemin du fichier.
+Modifiez `policy.yaml` (format et exemples dans `policy.yaml.example`), puis appliquez. Les règles sont poussées sur le primaire FGCP, qui synchronise le secondaire, sans redémarrage. Un réglage fait dans le WebUI est écrasé au push suivant. Aucun flux on-prem n'est ouvert par défaut : déclarez-les ici, avec l'alias `ONPREM_VPN`. La variable `policy_file` change le chemin du fichier.
 
 ## Reconstruire un firewall
 
@@ -44,7 +44,7 @@ La clé du firewall est repoussée avec la politique, celle de la fonction est r
 
 Avec `observability = true`, une petite VM du réseau Egress reçoit le syslog des firewalls (RFC 5424, port 514 en UDP et TCP) et Grafana Alloy le pousse dans Cockpit, dans le projet. Le relais n'a ni HA ni TLS : s'il tombe, les firewalls gardent leurs journaux en local, et le trafic ne quitte pas le Private Network. Si le client a déjà un SIEM, laissez `observability = false` et mettez son collecteur dans `firewall.syslog`.
 
-Terraform ajoute l'adresse du relais (`syslog_target` dans la sortie `observability`, 10.0.4.5 avec le plan par défaut) à `firewall.syslog` : les nœuds lui envoient leurs journaux dès leur premier démarrage. Un nœud ne lit ce réglage qu'à sa création : activer `observability` sur un déploiement existant demande de reconstruire les nœuds un à un. La sortie donne aussi `grafana_url` : dans Explore, choisissez la source de logs du projet et filtrez sur `{job="fortigate"}`, puis sur le label `type` (`event`, `utm`…). Le journal de trafic (`type="traffic"`) est de loin le plus volumineux : le relais le jette, sauf avec `keep_traffic_log = true` dans `module "observability"`.
+Terraform ajoute l'adresse du relais (`syslog_target` dans la sortie `observability`, 10.0.4.5 avec le plan par défaut) à `firewall.syslog` : les nœuds lui envoient leurs journaux dès leur premier démarrage. Un nœud ne lit ce réglage qu'à sa création : activer `observability` sur un déploiement existant demande de reconstruire les nœuds un à un. La sortie donne aussi `grafana_url` : dans Explore, choisissez la source de logs du projet et filtrez sur `{job="fortigate"}`, puis sur le label `type` (`event`, `utm`…). Dès qu'un collecteur syslog existe, le firewall journalise chaque session Internet des spokes (`type="traffic"`). C'est de loin le plus gros volume de Cockpit : `keep_traffic_log = false` dans `module "observability"` le fait jeter par le relais.
 
 ## Détruire
 

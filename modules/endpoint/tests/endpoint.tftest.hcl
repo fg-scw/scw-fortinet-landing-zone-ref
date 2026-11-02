@@ -8,31 +8,15 @@ variables {
   config = {
     zones   = ["fr-par-1", "fr-par-2"]
     backend = { server_ips = ["10.96.8.10"], port = 8080, health_check_uri = "/healthz" }
-  }
-}
-
-run "plain_lbs" {
-  command = plan
-
-  assert {
-    condition     = length(scaleway_lb.this) == 2 && length(scaleway_edge_services_pipeline.this) == 0 && length(scaleway_lb_acl.allow_edge) == 0
-    error_message = "Without edge: one public LB per zone, no pipeline, no ACL."
+    edge    = { fqdns = ["app.example.com"] }
   }
 }
 
 run "behind_edge_services" {
   command = plan
 
-  variables {
-    config = {
-      zones   = ["fr-par-1", "fr-par-2"]
-      backend = { server_ips = ["10.96.8.10"], port = 8080 }
-      edge    = { fqdns = ["app.example.com"] }
-    }
-  }
-
   assert {
-    condition     = length(scaleway_edge_services_backend_stage.this[0].lb_backend_config) == 2
+    condition     = length(scaleway_edge_services_backend_stage.this.lb_backend_config) == 2
     error_message = "Edge Services must balance across every zonal LB."
   }
 
