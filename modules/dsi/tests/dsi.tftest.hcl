@@ -133,27 +133,27 @@ run "platform_config" {
   # synchronised); only priority, sync IP and peer differ.
   assert {
     condition = alltrue([for k in ["fw1", "fw2"] : alltrue([
-      strcontains(terraform_data.fw_config[k].input, "set ip 172.16.0.10 255.255.255.0"),
-      strcontains(terraform_data.fw_config[k].input, "set ip 10.0.4.10 255.255.255.255"),
-      strcontains(terraform_data.fw_config[k].input, "set object system.interface"),
-      strcontains(terraform_data.fw_config[k].input, "set object router.static"),
-      strcontains(terraform_data.fw_config[k].input, "set unicast-hb enable"),
-      strcontains(terraform_data.fw_config[k].input, "set arps 60"),
-      strcontains(terraform_data.fw_config[k].input, "set arps-interval 1"),
-      strcontains(terraform_data.fw_config[k].input, "set override disable"),
-      strcontains(terraform_data.fw_config[k].input, "set password \"@@HA_PASSWORD@@\""),
+      strcontains(terraform_data.fw_config[k].input.platform, "set ip 172.16.0.10 255.255.255.0"),
+      strcontains(terraform_data.fw_config[k].input.platform, "set ip 10.0.4.10 255.255.255.255"),
+      strcontains(terraform_data.fw_config[k].input.platform, "set object system.interface"),
+      strcontains(terraform_data.fw_config[k].input.platform, "set object router.static"),
+      strcontains(terraform_data.fw_config[k].input.platform, "set unicast-hb enable"),
+      strcontains(terraform_data.fw_config[k].input.platform, "set arps 60"),
+      strcontains(terraform_data.fw_config[k].input.platform, "set arps-interval 1"),
+      strcontains(terraform_data.fw_config[k].input.platform, "set override disable"),
+      strcontains(terraform_data.fw_config[k].input.platform, "set password \"@@HA_PASSWORD@@\""),
     ])])
     error_message = "Platform CLI: hub VIP /24, egress VIP /32, interfaces and routes out of sync, unicast heartbeat, 60 x 1 s GARP, no override, HA password as a token."
   }
 
   assert {
     condition = alltrue([
-      strcontains(terraform_data.fw_config["fw1"].input, "set ip 10.255.0.11 255.255.255.0"),
-      strcontains(terraform_data.fw_config["fw1"].input, "set unicast-hb-peerip 10.255.0.12"),
-      strcontains(terraform_data.fw_config["fw1"].input, "set priority 200"),
-      strcontains(terraform_data.fw_config["fw2"].input, "set ip 10.255.0.12 255.255.255.0"),
-      strcontains(terraform_data.fw_config["fw2"].input, "set unicast-hb-peerip 10.255.0.11"),
-      strcontains(terraform_data.fw_config["fw2"].input, "set priority 100"),
+      strcontains(terraform_data.fw_config["fw1"].input.platform, "set ip 10.255.0.11 255.255.255.0"),
+      strcontains(terraform_data.fw_config["fw1"].input.platform, "set unicast-hb-peerip 10.255.0.12"),
+      strcontains(terraform_data.fw_config["fw1"].input.platform, "set priority 200"),
+      strcontains(terraform_data.fw_config["fw2"].input.platform, "set ip 10.255.0.12 255.255.255.0"),
+      strcontains(terraform_data.fw_config["fw2"].input.platform, "set unicast-hb-peerip 10.255.0.11"),
+      strcontains(terraform_data.fw_config["fw2"].input.platform, "set priority 100"),
     ])
     error_message = "Each node has its own sync IP, points at its peer, and fw1 is the preferred primary."
   }
@@ -161,11 +161,11 @@ run "platform_config" {
   # Hub routes: BU supernet and VPN on-prem, via the on-link VPC router.
   assert {
     condition = alltrue([
-      can(regex("(?s)set dst 10.64.0.0/10\\s+set gateway 169.254.169.254\\s+set device \"port3\"", terraform_data.fw_config["fw1"].input)),
-      can(regex("(?s)set dst 192.168.0.0/16\\s+set gateway 169.254.169.254", terraform_data.fw_config["fw1"].input)),
-      can(regex("(?s)set dst 10.0.4.0/24\\s+set gateway 169.254.169.254\\s+set device \"port3\"", terraform_data.fw_config["fw2"].input)),
-      can(regex("(?s)set gateway 10.0.4.2\\s+set device \"port5\"\\s+set distance 10", terraform_data.fw_config["fw1"].input)),
-      can(regex("(?s)set gateway 10.0.4.3\\s+set device \"port5\"\\s+set distance 20", terraform_data.fw_config["fw2"].input)),
+      can(regex("(?s)set dst 10.64.0.0/10\\s+set gateway 169.254.169.254\\s+set device \"port3\"", terraform_data.fw_config["fw1"].input.platform)),
+      can(regex("(?s)set dst 192.168.0.0/16\\s+set gateway 169.254.169.254", terraform_data.fw_config["fw1"].input.platform)),
+      can(regex("(?s)set dst 10.0.4.0/24\\s+set gateway 169.254.169.254\\s+set device \"port3\"", terraform_data.fw_config["fw2"].input.platform)),
+      can(regex("(?s)set gateway 10.0.4.2\\s+set device \"port5\"\\s+set distance 10", terraform_data.fw_config["fw1"].input.platform)),
+      can(regex("(?s)set gateway 10.0.4.3\\s+set device \"port5\"\\s+set distance 20", terraform_data.fw_config["fw2"].input.platform)),
     ])
     error_message = "Hub routes via 169.254.169.254 on port3 (BU supernet, DSI egress, VPN); default via PGW a, then PGW b."
   }
@@ -175,8 +175,13 @@ run "no_secret_in_rendered_config" {
   command = plan
 
   assert {
-    condition     = alltrue([for k in ["fw1", "fw2"] : !strcontains(terraform_data.fw_config[k].input, "test-password")]) && !strcontains(terraform_data.fw_policy.input, "test-password") && !strcontains(terraform_data.fw_policy.input, "test-secret-key")
+    condition     = alltrue([for k in ["fw1", "fw2"] : !strcontains(terraform_data.fw_config[k].input.platform, "test-password")]) && !strcontains(terraform_data.fw_policy.input, "test-password") && !strcontains(terraform_data.fw_policy.input, "test-secret-key")
     error_message = "Rendered CLI is shown in the plan: no password nor key in it."
+  }
+
+  assert {
+    condition     = alltrue([for k in ["fw1", "fw2"] : can(regex("^[0-9a-f]{64}$", terraform_data.fw_config[k].input.user_data))])
+    error_message = "fw_config tracks the user data (licence, keys, passwords) as a hash only."
   }
 }
 
@@ -308,14 +313,14 @@ run "management_is_private" {
   command = plan
 
   assert {
-    condition     = length(scaleway_instance_private_nic.mgmt) == 2 && alltrue([for k in ["fw1", "fw2"] : strcontains(terraform_data.fw_config[k].input, "edit \"port3\"\n        set alias \"hub\"")]) && strcontains(terraform_data.fw_config["fw1"].input, "edit \"port2\"\n        set alias \"mgmt\"\n        set mode static\n        set ip 10.0.6.11 255.255.255.0")
+    condition     = length(scaleway_instance_private_nic.mgmt) == 2 && alltrue([for k in ["fw1", "fw2"] : strcontains(terraform_data.fw_config[k].input.platform, "edit \"port3\"\n        set alias \"hub\"")]) && strcontains(terraform_data.fw_config["fw1"].input.platform, "edit \"port2\"\n        set alias \"mgmt\"\n        set mode static\n        set ip 10.0.6.11 255.255.255.0")
     error_message = "A management NIC per node, attached first: port2 (port1 is the unused public NIC), static from the user data, hub on port3 (the module creates no public IP for the firewalls)."
   }
 
   assert {
     condition = alltrue([
-      can(regex("(?s)config ha-mgmt-interfaces.*?set interface \"port2\"\\s+set gateway 10.0.6.2", terraform_data.fw_config["fw1"].input)),
-      can(regex("(?s)config ha-mgmt-interfaces.*?set interface \"port2\"\\s+set gateway 10.0.6.3", terraform_data.fw_config["fw2"].input)),
+      can(regex("(?s)config ha-mgmt-interfaces.*?set interface \"port2\"\\s+set gateway 10.0.6.2", terraform_data.fw_config["fw1"].input.platform)),
+      can(regex("(?s)config ha-mgmt-interfaces.*?set interface \"port2\"\\s+set gateway 10.0.6.3", terraform_data.fw_config["fw2"].input.platform)),
       scaleway_ipam_ip.fw["fw1-mgmt"].address == "10.0.6.11",
       scaleway_vpc_gateway_network.mgmt["a"].enable_masquerade,
       one(scaleway_vpc_gateway_network.mgmt["b"].ipam_config).push_default_route,
@@ -345,8 +350,8 @@ run "remote_syslog" {
 
   assert {
     condition = alltrue([
-      can(regex("(?s)config log syslogd setting\\s+set status enable\\s+set server \"10.0.4.20\"\\s+set port 514\\s+set mode udp", terraform_data.fw_config["fw1"].input)),
-      can(regex("(?s)config log syslogd2 setting\\s+set status enable\\s+set server \"logs.example.com\"\\s+set port 6514\\s+set mode reliable", terraform_data.fw_config["fw2"].input)),
+      can(regex("(?s)config log syslogd setting\\s+set status enable\\s+set server \"10.0.4.20\"\\s+set port 514\\s+set mode udp", terraform_data.fw_config["fw1"].input.platform)),
+      can(regex("(?s)config log syslogd2 setting\\s+set status enable\\s+set server \"logs.example.com\"\\s+set port 6514\\s+set mode reliable", terraform_data.fw_config["fw2"].input.platform)),
     ])
     error_message = "Syslog collectors go to syslogd, syslogd2..., TCP as reliable."
   }

@@ -58,5 +58,5 @@
 <text x="80" y="730" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#2C8564" text-anchor="start">✓ ni image dorée, ni script de configuration : le qcow2 d&#x27;usine suffit</text>
 <text x="80" y="764" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#2C8564" text-anchor="start">✓ prêt en 3 min 30, les deux nœuds en parallèle, sans IP publique</text>
 <text x="940" y="730" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#E05225" text-anchor="start">✕ lu une seule fois : changer la plateforme = reconstruire le nœud</text>
-<text x="940" y="764" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#E05225" text-anchor="start">✕ user data lisibles par l&#x27;API Instance : licence, mots de passe</text>
+<text x="940" y="764" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#E05225" text-anchor="start">✕ user data lisibles par l&#x27;API jusqu&#x27;à leur effacement, nœud prêt</text>
 </svg>

@@ -33,7 +33,7 @@ Terraform range dans les user data cloud-init de l'Instance la licence du nœud,
 
 <img alt="Premier démarrage : Terraform écrit les user data, FortiOS les lit une seule fois sur le CD-ROM NoCloud, puis fortigate.sh vérifie le nœud par le bastion et pousse la politique." src="lz-provisioning.svg">
 
-Un nœud est prêt en 3 min 30 environ, et les deux démarrent en parallèle. `fortigate.sh ready` vérifie alors le nœud par le bastion : clé `admin` acceptée, licence valide, ports dans le bon ordre. `fortigate.sh policy` pousse alors la politique sur le primaire, qui la synchronise. Les user data contiennent la licence et les mots de passe, lisibles par quiconque a accès aux Instances du projet DSI : réservez ce projet aux opérateurs.
+Un nœud est prêt en 3 min 30 environ, et les deux démarrent en parallèle. `fortigate.sh ready` vérifie alors le nœud par le bastion : clé `admin` acceptée, licence valide, ports dans le bon ordre. `fortigate.sh policy` pousse alors la politique sur le primaire, qui la synchronise. Terraform efface ensuite les user data de l'Instance, qui contiennent la licence et les mots de passe. Elles restent lisibles par l'API Instance pendant les quelques minutes du premier démarrage : réservez le projet DSI aux opérateurs.
 
 ## Bascule
 

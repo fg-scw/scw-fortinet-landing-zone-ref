@@ -159,11 +159,15 @@ resource "terraform_data" "fw_generation" {
   input    = coalesce(each.value.snapshot_id, each.value.image)
 }
 
-# The platform CLI of each node, shown in the plan without secrets. FortiOS
-# reads its user data once: a change reaches the node when it is rebuilt.
+# What each node reads at first boot: the platform CLI in clear, the user
+# data (licence, admin keys, passwords) as a hash. FortiOS reads it once: a
+# change shows here and reaches the node when it is rebuilt.
 resource "terraform_data" "fw_config" {
   for_each = local.fw
-  input    = local.fw_platform[each.key]
+  input = {
+    platform  = local.fw_platform[each.key]
+    user_data = nonsensitive(sha256(local.fw_user_data[each.key]))
+  }
 }
 
 resource "scaleway_block_volume" "fw" {
@@ -243,8 +247,9 @@ resource "scaleway_instance_server" "fw" {
 
   lifecycle {
     # type: changing it would stop both nodes; it applies to a rebuilt node.
-    # state: started by fw_ready.
-    ignore_changes       = [type, state]
+    # state: started by fw_ready. user_data: erased by fw_ready (fw_config
+    # tracks it).
+    ignore_changes       = [type, state, user_data]
     replace_triggered_by = [terraform_data.fw_generation[each.key]]
   }
 }
@@ -301,7 +306,9 @@ locals {
 # The server first starts here, once its private NICs exist: FortiOS loads
 # the licence from its user data, reboots, then applies the CLI. fortigate.sh
 # then waits for the admin key to be accepted and the licence to be valid,
-# and checks the port <-> MAC mapping. Runs when a node is (re)created.
+# and checks the port <-> MAC mapping. The user data, which FortiOS never
+# reads again, are then erased: they hold the licence and the passwords.
+# Runs when a node is (re)created.
 # Needs scw and ssh on the runner, and the runner in admin_cidrs (bastion).
 resource "terraform_data" "fw_ready" {
   for_each = local.fw
@@ -314,6 +321,7 @@ resource "terraform_data" "fw_ready" {
       id=${split("/", scaleway_instance_server.fw[each.key].id)[1]} zone=${each.value.zone}
       [ "$(scw instance server get $id zone=$zone -o template='{{.State}}')" = running ] || scw instance server start $id zone=$zone --wait
       ${path.module}/fortigate.sh ready
+      scw instance user-data delete server-id=$id key=cloud-init zone=$zone
     EOT
     environment = {
       FGT_HOST     = each.value.ip.mgmt

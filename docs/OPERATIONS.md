@@ -29,7 +29,7 @@ Modifiez `live/dsi/policy.yaml` (format : [CONFIGURATION.md](CONFIGURATION.md)),
 
 ## Reconstruire un firewall
 
-FortiOS ne lit ses user data qu'une fois. Un changement de plateforme (interfaces, HA, passerelles, syslog, licence, clés `admin`) ou de version passe donc par une reconstruction ; le plan l'annonce par une mise à jour de `terraform_data.fw_config`. Un nœud par `apply`, le secondaire d'abord :
+FortiOS ne lit ses user data qu'une fois. Un changement de plateforme (interfaces, HA, passerelles, syslog, licence, clés `admin`) ou de version passe donc par une reconstruction ; le plan l'annonce par une mise à jour de `terraform_data.fw_config`, qui garde la plateforme en clair et les user data sous forme de hash. Un nœud par `apply`, le secondaire d'abord :
 
 ```bash
 ssh -J <bastion> admin@<ip-mgmt> 'get system ha status'                                  # qui est primaire ?
@@ -93,7 +93,7 @@ Faites de même dans `fr-par-2` si des VM y ont tourné. Notez les `project_id` 
 
 - Redis, MongoDB, Kafka, OpenSearch et ClickHouse ne suivent pas le routage VPC : ils ne sont joignables que depuis leur Private Network.
 - Exposition directe : les chemins Internet qu'une BU crée elle-même ne passent pas par le firewall : IP publique d'instance (`InstancesFullAccess`), Load Balancer, nœuds Kapsule avec IP publique. Le contrôle passe par IAM et par un inventaire des projets BU (`scw instance ip list project-id=<projet>`, `scw lb list project-id=<projet>`). Retirer `InstancesFullAccess`, `LoadBalancersFullAccess` ou `KubernetesFullAccess` de `iam_permission_sets` ferme ces voies.
-- Le state DSI contient le mot de passe `admin`, le mot de passe HA et les clés API de bascule : protégez le bucket.
+- Le state DSI contient le mot de passe `admin`, le mot de passe HA, les user data des firewalls (licence comprise) et les clés API de bascule : protégez le bucket.
 - Le firewall ne détient qu'une clé `FunctionsPrivateAccess`, qui permet seulement d'appeler la fonction privée ; la clé `IPAMFullAccess` reste dans la fonction, limitée au projet DSI.
 - Par défaut, les règles sont en *sloppy state* : le firewall ne vérifie plus les numéros de séquence TCP, et les sessions survivent à une bascule de firewall. Elles ne survivent jamais à la perte d'une Public Gateway, car l'IP publique change.
 - `policy.nat_outbound` n'est pas pris en charge : le trafic Internet des BU est traduit vers la VIP egress par la règle `[EGRESS]`.
