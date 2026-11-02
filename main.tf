@@ -5,6 +5,9 @@ locals {
   # empty document, hence the content check on the string).
   policy_raw = fileexists(var.policy_file) ? file(var.policy_file) : ""
   policy     = yamldecode(length(regexall("(?m)^\\s*[^#\\s]", local.policy_raw)) > 0 ? local.policy_raw : "{}")
+
+  # Host number of the syslog relay in the egress network.
+  relay_host = 5
 }
 
 module "hub" {
@@ -17,6 +20,7 @@ module "hub" {
   edge_services_plan    = var.edge_services_plan
   vpn                   = var.vpn
   interlink             = var.interlink
+  syslog_relay_host     = var.observability ? local.relay_host : null
 }
 
 module "spoke" {
@@ -60,6 +64,7 @@ module "observability" {
   hub_cidr              = module.hub.observability_target.hub_cidr
   pgw_hosts             = module.hub.observability_target.pgw_hosts
   reserved_hosts        = module.hub.observability_target.reserved_hosts
+  host                  = local.relay_host
   bastion               = module.hub.observability_target.bastion
   tags                  = concat(module.hub.observability_target.tags, ["observability"])
   admin_ssh_public_keys = var.admin_ssh_public_keys

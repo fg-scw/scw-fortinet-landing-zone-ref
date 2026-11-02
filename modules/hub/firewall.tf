@@ -59,6 +59,12 @@ locals {
     [var.spoke_supernet], values(var.cidrs), local.vpn_cidrs, local.interlink_cidrs,
   ))
 
+  # The syslog relay of modules/observability, unless the list has it already.
+  relay_ip = var.syslog_relay_host == null ? null : cidrhost(var.cidrs.egress, var.syslog_relay_host)
+  syslog = concat(var.firewall.syslog, local.relay_ip == null || contains([for l in var.firewall.syslog : l.host], coalesce(local.relay_ip, "-")) ? [] : [
+    { host = local.relay_ip, port = 514, transport = "udp" },
+  ])
+
   # Per-node platform CLI (interfaces, routes, HA). Interfaces and static
   # routes are excluded from FGCP sync, so both nodes get this, at creation.
   # No secret in it: it is shown in the plan.
@@ -83,7 +89,7 @@ locals {
       monitors     = var.firewall.gateway_monitors
       ha           = merge(var.firewall.ha, { group_name = var.name })
       system       = var.firewall.system
-      syslog       = var.firewall.syslog
+      syslog       = local.syslog
     })
   }
 

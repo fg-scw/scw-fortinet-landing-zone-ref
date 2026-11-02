@@ -44,7 +44,7 @@ La clé du firewall est repoussée avec la politique, celle de la fonction est r
 
 Avec `observability = true`, une petite VM du réseau Egress reçoit le syslog des firewalls (RFC 5424, port 514 en UDP et TCP) et Grafana Alloy le pousse dans Cockpit, dans le projet. Le relais n'a ni HA ni TLS : s'il tombe, les firewalls gardent leurs journaux en local, et le trafic ne quitte pas le Private Network. Si le client a déjà un SIEM, laissez `observability = false` et mettez son collecteur dans `firewall.syslog`.
 
-Les firewalls envoient au relais l'adresse de `firewall.syslog`, qui doit valoir `syslog_target` (sortie `observability`, 10.0.4.5 avec le plan par défaut). Un nœud ne lit ce réglage qu'à sa création : s'il manquait au premier apply, reconstruisez les nœuds un à un. La sortie donne aussi `grafana_url` : dans Explore, choisissez la source de logs du projet et filtrez sur `{job="fortigate"}`, puis sur le label `type` (`event`, `utm`…). Le journal de trafic (`type="traffic"`) est de loin le plus volumineux : le relais le jette, sauf avec `keep_traffic_log = true` dans `module "observability"`.
+Terraform ajoute l'adresse du relais (`syslog_target` dans la sortie `observability`, 10.0.4.5 avec le plan par défaut) à `firewall.syslog` : les nœuds lui envoient leurs journaux dès leur premier démarrage. Un nœud ne lit ce réglage qu'à sa création : activer `observability` sur un déploiement existant demande de reconstruire les nœuds un à un. La sortie donne aussi `grafana_url` : dans Explore, choisissez la source de logs du projet et filtrez sur `{job="fortigate"}`, puis sur le label `type` (`event`, `utm`…). Le journal de trafic (`type="traffic"`) est de loin le plus volumineux : le relais le jette, sauf avec `keep_traffic_log = true` dans `module "observability"`.
 
 ## Détruire
 
@@ -68,6 +68,7 @@ Faites de même dans `fr-par-2` si des VM y ont tourné. La même erreur vient a
 | Symptôme | Cause | Action |
 |---|---|---|
 | `insufficient permissions: read security_groups` au premier apply | projet créé quelques secondes plus tôt, droits pas encore propagés | relancer `terraform plan` puis `terraform apply` : les ressources en échec sont remplacées |
+| `need exactly one primary` au push de politique | les deux nœuds se disent primaires ou standalone : la paire n'a pas formé de cluster (réseau HA, mot de passe HA) | `get system ha status` sur chaque nœud, puis reconstruire le nœud fautif |
 | `stdio forwarding failed` en SSH vers un firewall | il démarre encore | attendre quelques minutes |
 | `Connection timed out during banner exchange` vers une VM | port fermé par la NACL du spoke | ajouter une règle `nacl_inbound` au spoke, puis appliquer |
 | plus de trafic via le hub ou vers Internet après une bascule | VIP restées sur l'ancien primaire, la fonction de bascule a échoué | lancer la ligne du primaire de `failover_commands` |
