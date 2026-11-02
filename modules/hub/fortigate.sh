@@ -7,9 +7,10 @@
 #   fortigate.sh policy   policy and failover automation CLI on the FGCP
 #                         primary, which syncs the secondary (policy.tf)
 # Inputs come from the environment, never argv (secrets):
-#   all:    FGT_JUMP (bastion "bastion@<ip>:<port>")
-#   ready:  FGT_HOST FGT_LICENSED (1|0) FGT_MACS ("port2=<mac> ...")
-#   policy: FGT_HOSTS ("<ip> <ip>") FGT_CONFIG FGT_POLICY_IDS ("1 2 ...")
+#   ready:  FGT_HOST FGT_JUMP (bastion "bastion@<ip>:<port>") FGT_LICENSED (1|0)
+#           FGT_MACS ("port2=<mac> ...")
+#   policy: FGT_HOSTS ("<ip>=<bastion> ...", each node through the bastion of
+#           its zone) FGT_CONFIG FGT_POLICY_IDS ("1 2 ...")
 # The runner needs ssh, the private key of one of admin_ssh_public_keys, and
 # an address in admin_cidrs (bastion).
 set -euo pipefail
@@ -25,13 +26,19 @@ STATE=${FGT_STATE_DIR:-$HOME/.cache/landing-zone-fortigate}
 mkdir -p "$STATE"
 [ -O "$STATE" ] && chmod 700 "$STATE" || { echo "$STATE is not owned by $(id -un)" >&2; exit 1; }
 kh() { echo "$STATE/known_hosts-$1"; }
+jump() { # $1 host; its bastion from FGT_HOSTS, else FGT_JUMP
+  local e
+  for e in ${FGT_HOSTS:-}; do [ "${e%%=*}" = "$1" ] && { echo "${e#*=}"; return; }; done
+  echo "$FGT_JUMP"
+}
 cfg() { # $1 host; writes and prints its ssh config
-  local f="$STATE/ssh-$1" b=${FGT_JUMP%:*}
+  local f="$STATE/ssh-$1" j b
+  j=$(jump "$1") b=${j%:*}
   cat >"$f" <<EOC
 Host bastion
   HostName ${b#*@}
   User ${b%@*}
-  Port ${FGT_JUMP##*:}
+  Port ${j##*:}
   ProxyJump none
   UserKnownHostsFile $(kh bastion)
 Host *
@@ -90,7 +97,8 @@ check_macs() { # $1 host; FGT_MACS "port2=<mac> ..."
   done
 }
 
-is_primary() { cli "$1" <<<'get system status' | grep -E 'Current HA mode: (a-p, (primary|master)|standalone)' >/dev/null; }
+# Standalone is not primary: the pair never formed a cluster.
+is_primary() { cli "$1" <<<'get system status' | grep -E 'Current HA mode: a-p, (primary|master)' >/dev/null; }
 
 ready() {
   local h=$FGT_HOST
@@ -119,25 +127,35 @@ ready() {
   log "done"
 }
 
+primaries() { # the nodes of FGT_HOSTS that say they are the FGCP primary
+  local e
+  for e in $FGT_HOSTS; do is_primary "${e%%=*}" && echo "${e%%=*}"; done
+  return 0
+}
+
 policy() {
-  local h primary=
+  local primary=
   # Right after a rebuilt node joins, the cluster re-elects and the primary
-  # does not answer for a while: keep looking.
+  # does not answer for a while: wait for exactly one. Two means the pair
+  # never formed a cluster: a push would reach one node only.
   for _ in $(seq 20); do
-    for h in $FGT_HOSTS; do is_primary "$h" && { primary=$h; break 2; }; done
+    primary=$(primaries)
+    [ "$(wc -l <<<"$primary")" -eq 1 ] && [ -n "$primary" ] && break
     sleep 15
   done
-  [ -n "$primary" ] || { log "no primary among $FGT_HOSTS"; return 1; }
+  [ "$(wc -l <<<"$primary")" -eq 1 ] && [ -n "$primary" ] ||
+    { log "need exactly one primary, got: ${primary:-none} (cluster not formed?)"; return 1; }
   FGT_HOST=$primary
-  # Policy ids are positions: drop the ids the new policy no longer has.
+  log "pushing policy"
+  base64 -d <<<"$FGT_CONFIG" | cli "$primary" >/dev/null
+  # Policy ids are positions 1..N: drop the ids the new policy no longer has,
+  # only once it is in place, so a failed push never leaves a partial policy.
   local stale
   stale=$(cli "$primary" <<<'show firewall policy' | sed -n 's/^ *edit \([0-9]*\)$/\1/p' |
     grep -v -x -F -f <(tr ' ' '\n' <<<"$FGT_POLICY_IDS") || true)
   if [ -n "$stale" ]; then
     { echo 'config firewall policy'; for i in $stale; do echo "delete $i"; done; echo end; } | cli "$primary" >/dev/null
   fi
-  log "pushing policy"
-  base64 -d <<<"$FGT_CONFIG" | cli "$primary" >/dev/null
   # The first election precedes the automation: align the data VIPs now,
   # and again once a function redeployed with new NIC MACs is live.
   cli "$primary" <<<'diagnose automation test lz-ipam-reconcile' >/dev/null
@@ -145,6 +163,9 @@ policy() {
   cli "$primary" <<<'diagnose automation test lz-ipam-reconcile' >/dev/null
   log "done"
 }
+
+# Sourced (tests): functions only.
+[ "${BASH_SOURCE[0]}" = "$0" ] || return 0
 
 case "${1:-}" in
 ready | policy) "$1" ;;

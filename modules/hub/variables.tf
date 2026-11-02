@@ -144,11 +144,11 @@ variable "firewall" {
   }
 
   validation {
-    condition = length(var.firewall.syslog) <= 4 && alltrue([
+    condition = length(var.firewall.syslog) <= (var.syslog_relay_host == null ? 4 : 3) && alltrue([
       for l in var.firewall.syslog :
       can(regex("^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$", l.host)) && l.port >= 1 && l.port <= 65535 && contains(["udp", "tcp"], l.transport)
     ]) && length(distinct([for l in var.firewall.syslog : "${l.host}:${l.port}"])) == length(var.firewall.syslog)
-    error_message = "firewall.syslog: at most 4 entries; host is an IPv4 address or a host name, port 1-65535, transport udp|tcp, one entry per host:port."
+    error_message = "firewall.syslog: at most 4 entries, the syslog relay included; host is an IPv4 address or a host name, port 1-65535, transport udp|tcp, one entry per host:port."
   }
 
   validation {
@@ -334,4 +334,10 @@ variable "policy" {
     condition     = alltrue([for n in var.policy.nat_outbound : n.target == null || can(cidrhost("${n.target}/32", 0))])
     error_message = "policy.nat_outbound target must be an IPv4 address."
   }
+}
+
+variable "syslog_relay_host" {
+  description = "Host number of the syslog relay (modules/observability) in the egress network: the nodes log to it from their first boot, on top of firewall.syslog. null = no relay."
+  type        = number
+  default     = null
 }

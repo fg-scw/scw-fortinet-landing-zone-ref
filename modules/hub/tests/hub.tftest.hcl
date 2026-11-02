@@ -357,6 +357,39 @@ run "remote_syslog" {
   }
 }
 
+run "syslog_relay_added_once" {
+  command = plan
+
+  variables {
+    syslog_relay_host = 5
+    firewall = {
+      syslog = [{ host = "logs.example.com" }, { host = "10.0.4.5" }]
+      nodes = {
+        fw1 = { zone = "fr-par-1", image = "fortigate" }
+        fw2 = { zone = "fr-par-2", image = "fortigate" }
+      }
+    }
+  }
+
+  assert {
+    condition     = length(regexall("set server \"10.0.4.5\"", terraform_data.fw_config["fw1"].input.platform)) == 1
+    error_message = "The relay is sent the syslog once, even when firewall.syslog lists it too."
+  }
+}
+
+run "syslog_relay_from_first_boot" {
+  command = plan
+
+  variables {
+    syslog_relay_host = 5
+  }
+
+  assert {
+    condition     = can(regex("(?s)config log syslogd setting\\s+set status enable\\s+set server \"10.0.4.5\"\\s+set port 514\\s+set mode udp", terraform_data.fw_config["fw2"].input.platform))
+    error_message = "With a relay, the nodes send it their syslog from their first boot."
+  }
+}
+
 run "internal_nets_cover_the_landing_zone" {
   command = plan
 

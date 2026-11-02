@@ -94,8 +94,7 @@ resource "terraform_data" "fw_policy" {
   provisioner "local-exec" {
     command = "${path.module}/fortigate.sh policy"
     environment = {
-      FGT_HOSTS      = join(" ", [for k in keys(local.fw) : local.fw[k].ip.mgmt])
-      FGT_JUMP       = local.bastion.fw1
+      FGT_HOSTS      = join(" ", [for k in keys(local.fw) : "${local.fw[k].ip.mgmt}=${local.bastion[k]}"])
       FGT_CONFIG     = base64encode(replace(self.input, "@@FAILOVER_KEY@@", scaleway_iam_api_key.fw_invoke.secret_key))
       FGT_POLICY_IDS = join(" ", [for r in local.policy_rules : r.id])
     }

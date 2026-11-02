@@ -58,7 +58,7 @@ scw object bucket create name=<bucket> region=fr-par enable-versioning=true     
 
    Ne démarrez jamais d'Instance sur ces snapshots à la main : un disque qui a déjà démarré ignore ses user data.
 
-2. Copier `terraform.tfvars.example` en `terraform.tfvars` et `backend.hcl.example` en `backend.hcl`, puis les remplir : identifiants des snapshots (`<zone>/<uuid>`), licences, `admin_cidrs`, spokes. Avec `observability = true`, gardez `firewall.syslog` sur l'adresse du relais dès ce premier apply : un nœud ne lit ce réglage qu'à sa création. Pour ajouter des règles au firewall, copier `policy.yaml.example` en `policy.yaml`. Les options avancées du hub (plan d'adressage, numéros d'hôte, taille des Public Gateways) sont des arguments de `module "hub"` dans `main.tf`, décrits dans `modules/hub/variables.tf`.
+2. Copier `terraform.tfvars.example` en `terraform.tfvars` et `backend.hcl.example` en `backend.hcl`, puis les remplir : identifiants des snapshots (`<zone>/<uuid>`), licences, `admin_cidrs`, spokes. Pour ajouter des règles au firewall, copier `policy.yaml.example` en `policy.yaml`. Les options avancées du hub (plan d'adressage, numéros d'hôte, taille des Public Gateways) sont des arguments de `module "hub"` dans `main.tf`, décrits dans `modules/hub/variables.tf`.
 
 3. Déployer :
 
@@ -86,6 +86,8 @@ Ils tournent hors ligne, sans appel à Scaleway :
 ```bash
 terraform init -backend=false && terraform test
 for m in hub spoke endpoint observability; do terraform -chdir=modules/$m init -backend=false && terraform -chdir=modules/$m test; done
+bash modules/hub/test_fortigate.sh
+python3 -m unittest discover -s modules/hub/ipam_follow
 ```
 
 ## Documentation
