@@ -10,9 +10,9 @@ locals {
   push_url = endswith(scaleway_cockpit_source.logs.push_url, "/loki/api/v1/push") ? scaleway_cockpit_source.logs.push_url : "${scaleway_cockpit_source.logs.push_url}/loki/api/v1/push"
 
   config_alloy = templatefile("${path.module}/config.alloy.tftpl", {
-    ip             = local.ip
-    push_url       = local.push_url
-    keep_filterlog = var.keep_filterlog
+    ip               = local.ip
+    push_url         = local.push_url
+    keep_traffic_log = var.keep_traffic_log
   })
 
   nftables = templatefile("${path.module}/nftables.conf.tftpl", {
@@ -145,6 +145,13 @@ resource "scaleway_instance_user_data" "cloud_init" {
   value     = local.cloud_init
 
   depends_on = [scaleway_instance_private_nic.relay]
+
+  # The resource ID embeds the server ID, but the provider updates server_id
+  # in place: without this, a rebuilt relay leaves a stale ID that breaks
+  # every later plan ("instance_server ... is not found").
+  lifecycle {
+    replace_triggered_by = [scaleway_instance_server.relay]
+  }
 }
 
 resource "terraform_data" "reboot" {

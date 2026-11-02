@@ -10,6 +10,12 @@ variable "zone" {
   default     = "fr-par-1"
 }
 
+variable "policy_file" {
+  description = "Customer firewall policy (see policy.yaml.example). A missing file means no custom policy."
+  type        = string
+  default     = "policy.yaml"
+}
+
 variable "admin_cidrs" {
   description = "Public IPs allowed on the Public Gateway SSH bastion, the Terraform runner included."
   type        = list(string)

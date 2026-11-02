@@ -106,8 +106,8 @@ variable "alloy_version" {
   default     = null
 }
 
-variable "keep_filterlog" {
-  description = "Also ship the firewall packet log (program filterlog): very high volume, dropped by default."
+variable "keep_traffic_log" {
+  description = "Also ship the FortiGate traffic log (type=\"traffic\"): very high volume, dropped by default."
   type        = bool
   default     = false
   nullable    = false

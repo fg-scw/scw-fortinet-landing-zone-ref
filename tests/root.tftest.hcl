@@ -91,6 +91,16 @@ run "wiring" {
   }
 }
 
+# A customer policy file must plan (a conditional on the decoded YAML used to
+# fail with inconsistent types).
+run "policy_file" {
+  command = plan
+
+  variables {
+    policy_file = "tests/policy.yaml"
+  }
+}
+
 run "unknown_owner" {
   command = plan
 

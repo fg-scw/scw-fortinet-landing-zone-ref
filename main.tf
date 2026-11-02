@@ -2,9 +2,9 @@ locals {
   # Optional customer policy (see policy.yaml.example). Absent, empty or fully
   # commented: no custom policy. A syntax error must fail the plan, never
   # silently push an empty policy to running firewalls (yamldecode rejects an
-  # empty document, hence the content check).
-  policy_raw = fileexists("${path.root}/policy.yaml") ? file("${path.root}/policy.yaml") : ""
-  policy     = length(regexall("(?m)^\\s*[^#\\s]", local.policy_raw)) > 0 ? yamldecode(local.policy_raw) : {}
+  # empty document, hence the content check on the string).
+  policy_raw = fileexists(var.policy_file) ? file(var.policy_file) : ""
+  policy     = yamldecode(length(regexall("(?m)^\\s*[^#\\s]", local.policy_raw)) > 0 ? local.policy_raw : "{}")
 }
 
 module "hub" {

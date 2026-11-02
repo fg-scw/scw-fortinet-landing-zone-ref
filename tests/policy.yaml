@@ -1,0 +1,10 @@
+aliases:
+  SPOKE_GENOMIC: ["10.96.8.0/21"]
+  SPOKE_HR: ["10.96.16.0/21"]
+rules:
+  - description: "HR reaches genomic web"
+    action: pass
+    source: SPOKE_HR
+    destination: SPOKE_GENOMIC
+    protocol: tcp
+    port: 8080

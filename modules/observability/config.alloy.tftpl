@@ -8,10 +8,6 @@ loki.relabel "syslog" {
     target_label  = "host"
   }
   rule {
-    source_labels = ["__syslog_message_app_name"]
-    target_label  = "program"
-  }
-  rule {
     source_labels = ["__syslog_message_severity"]
     target_label  = "level"
   }
@@ -32,20 +28,28 @@ loki.source.syslog "fortigate" {
   }
 
   relabel_rules = loki.relabel.syslog.rules
-  forward_to    = [${keep_filterlog ? "loki.write.cockpit.receiver" : "loki.process.volume.receiver"}]
+  forward_to    = [loki.process.fortigate.receiver]
 }
-%{ if !keep_filterlog ~}
 
-// The packet log is by far the largest volume: dropped unless keep_filterlog.
-loki.process "volume" {
+// FortiGate leaves the syslog APP-NAME empty: the log type (event, traffic,
+// utm) comes from the message. The traffic log is by far the largest volume:
+// dropped unless keep_traffic_log.
+loki.process "fortigate" {
+  stage.regex {
+    expression = "type=\"(?P<type>[a-z-]+)\""
+  }
+  stage.labels {
+    values = { type = "" }
+  }
+%{ if !keep_traffic_log ~}
   stage.match {
-    selector = "{program=\"filterlog\"}"
+    selector = "{type=\"traffic\"}"
     action   = "drop"
   }
+%{ endif ~}
 
   forward_to = [loki.write.cockpit.receiver]
 }
-%{ endif ~}
 
 loki.write "cockpit" {
   endpoint {

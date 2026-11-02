@@ -55,8 +55,8 @@ run "alloy_config" {
     error_message = "Alloy must listen on 10.0.4.5:514 in UDP and TCP"
   }
   assert {
-    condition     = strcontains(scaleway_instance_user_data.cloud_init.value, "program=\\\"filterlog\\\"") && strcontains(scaleway_instance_user_data.cloud_init.value, "loki.process.volume.receiver")
-    error_message = "filterlog must be dropped by default"
+    condition     = strcontains(scaleway_instance_user_data.cloud_init.value, "selector = \"{type=\\\"traffic\\\"}\"") && strcontains(scaleway_instance_user_data.cloud_init.value, "loki.process.fortigate.receiver")
+    error_message = "the traffic log must be dropped by default"
   }
   assert {
     condition     = strcontains(scaleway_instance_user_data.cloud_init.value, "url     = \"https://abc.logs.cockpit.fr-par.scw.cloud/loki/api/v1/push\"") && strcontains(scaleway_instance_user_data.cloud_init.value, "sys.env(\"COCKPIT_TOKEN\")")
@@ -64,15 +64,15 @@ run "alloy_config" {
   }
 }
 
-run "keep_filterlog" {
+run "keep_traffic_log" {
   command = plan
   variables {
-    keep_filterlog = true
+    keep_traffic_log = true
   }
 
   assert {
-    condition     = !strcontains(scaleway_instance_user_data.cloud_init.value, "filterlog")
-    error_message = "no filter expected with keep_filterlog"
+    condition     = !strcontains(scaleway_instance_user_data.cloud_init.value, "action   = \"drop\"")
+    error_message = "no drop expected with keep_traffic_log"
   }
 }
 
