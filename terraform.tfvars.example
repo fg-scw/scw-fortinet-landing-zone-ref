@@ -30,7 +30,8 @@ spokes = {
   }
 }
 
-# Public endpoints: Load Balancers in the owner's network, Edge Services optional.
+# Public endpoints: Edge Services (TLS, WAF) in front of Load Balancers in the
+# owner's network.
 endpoints = {
   web = {
     owner = "genomic"
@@ -45,7 +46,7 @@ endpoints = {
 # Syslog relay to Cockpit. Off when the customer has its own SIEM.
 observability = true
 
-# edge_services_plan = "starter" # hub endpoints using Edge Services
+# edge_services_plan = "starter" # required by hub endpoints
 
 # vpn = {
 #   customer_gateway_ip = "198.51.100.1"

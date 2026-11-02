@@ -3,6 +3,6 @@ output "lb_public_ips" {
 }
 
 output "edge_cname_target" {
-  description = "Point every FQDN to this name (CNAME) once Edge Services is enabled."
-  value       = local.edge ? scaleway_edge_services_dns_stage.this[0].default_fqdn : null
+  description = "Point every FQDN to this name (CNAME)."
+  value       = scaleway_edge_services_dns_stage.this.default_fqdn
 }

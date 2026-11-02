@@ -107,8 +107,8 @@ variable "alloy_version" {
 }
 
 variable "keep_traffic_log" {
-  description = "Also ship the FortiGate traffic log (type=\"traffic\"): very high volume, dropped by default."
+  description = "Ship the FortiGate traffic log (type=\"traffic\", Internet sessions of the spokes). The largest volume: false drops it to cut the Cockpit bill."
   type        = bool
-  default     = false
+  default     = true
   nullable    = false
 }

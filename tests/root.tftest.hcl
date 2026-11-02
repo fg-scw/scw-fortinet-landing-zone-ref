@@ -67,14 +67,15 @@ variables {
     }
   }
   spokes = {
-    genomic = { index = 1 }
+    genomic = { index = 1, edge_services_plan = "starter" }
     hr      = { index = 2 }
   }
   endpoints = {
-    web = { owner = "genomic", config = { backend = { server_ips = ["10.96.8.10"], port = 8080 } } }
-    api = { owner = "hub", config = { backend = { server_ips = ["10.0.4.20"], port = 443 } } }
+    web = { owner = "genomic", config = { backend = { server_ips = ["10.96.8.10"], port = 8080 }, edge = { fqdns = ["web.example.com"] } } }
+    api = { owner = "hub", config = { backend = { server_ips = ["10.0.4.20"], port = 443 }, edge = { fqdns = ["api.example.com"] } } }
   }
-  observability = true
+  edge_services_plan = "starter"
+  observability      = true
 }
 
 run "wiring" {
@@ -89,6 +90,16 @@ run "wiring" {
     condition     = module.endpoint["web"].lb_public_ips != null && length(module.observability) == 1
     error_message = "One endpoint per entry, observability on demand."
   }
+}
+
+run "endpoints_need_edge_plan" {
+  command = plan
+
+  variables {
+    edge_services_plan = null
+  }
+
+  expect_failures = [var.endpoints]
 }
 
 # A customer policy file must plan (a conditional on the decoded YAML used to

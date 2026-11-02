@@ -341,3 +341,12 @@ variable "syslog_relay_host" {
   type        = number
   default     = null
 }
+
+variable "endpoint_backends" {
+  description = "Backends of the hub endpoints (modules/endpoint): the hub egress network, where their Load Balancers sit, reaches these IPs on this port only. name -> { server_ips, port }."
+  type = map(object({
+    server_ips = list(string)
+    port       = number
+  }))
+  default = {}
+}
