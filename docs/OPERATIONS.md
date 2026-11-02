@@ -14,7 +14,7 @@ Supprimez d'abord ce qui est attaché aux Private Networks du spoke (instances, 
 
 ## Changer la politique du firewall
 
-Modifiez `policy.yaml` (format et exemples dans `policy.yaml.example`), puis appliquez. Les règles sont poussées sur le primaire FGCP, qui synchronise le secondaire, sans redémarrage. Un réglage fait dans le WebUI est écrasé au push suivant.
+Modifiez `policy.yaml` (format et exemples dans `policy.yaml.example`), puis appliquez. Les règles sont poussées sur le primaire FGCP, qui synchronise le secondaire, sans redémarrage. Un réglage fait dans le WebUI est écrasé au push suivant. La variable `policy_file` change le chemin du fichier.
 
 ## Reconstruire un firewall
 
@@ -23,7 +23,7 @@ FortiOS ne lit ses user data qu'une fois, au premier démarrage. Un changement d
 ```bash
 ssh -J <bastion> admin@<ip-mgmt> 'get system ha status'                     # qui est primaire ?
 terraform apply -replace='module.hub.terraform_data.fw_generation["fw2"]'   # le secondaire
-# sur le primaire, en SSH : execute ha failover set 1   (confirmer par y)
+# sur le primaire, en SSH interactif : execute ha failover set 1   (confirmer par y)
 terraform apply -replace='module.hub.terraform_data.fw_generation["fw1"]'   # l'ancien primaire
 ```
 
@@ -42,9 +42,9 @@ La clé du firewall est repoussée avec la politique, celle de la fonction est r
 
 ## Journaux
 
-Avec `observability = true`, une petite VM du réseau Egress reçoit le syslog des firewalls (RFC 5424, port 514 en UDP et TCP) et Grafana Alloy le pousse dans Cockpit, dans le projet du hub. Le relais n'a ni HA ni TLS : s'il tombe, les firewalls gardent leurs journaux en local, et le trafic ne quitte pas le Private Network. Si le client a déjà un SIEM, laissez `observability = false` et mettez son collecteur dans `firewall.syslog`.
+Avec `observability = true`, une petite VM du réseau Egress reçoit le syslog des firewalls (RFC 5424, port 514 en UDP et TCP) et Grafana Alloy le pousse dans Cockpit, dans le projet. Le relais n'a ni HA ni TLS : s'il tombe, les firewalls gardent leurs journaux en local, et le trafic ne quitte pas le Private Network. Si le client a déjà un SIEM, laissez `observability = false` et mettez son collecteur dans `firewall.syslog`.
 
-Pour brancher les firewalls sur le relais, recopiez `syslog_target` (sortie `observability`) dans `firewall.syslog`, puis reconstruisez les nœuds un à un. La sortie donne aussi `grafana_url` : dans Explore, choisissez la source de logs du projet du hub et filtrez sur `{job="fortigate"}`.
+Les firewalls envoient au relais l'adresse de `firewall.syslog`, qui doit valoir `syslog_target` (sortie `observability`, 10.0.4.5 avec le plan par défaut). Un nœud ne lit ce réglage qu'à sa création : s'il manquait au premier apply, reconstruisez les nœuds un à un. La sortie donne aussi `grafana_url` : dans Explore, choisissez la source de logs du projet et filtrez sur `{job="fortigate"}`, puis sur le label `type` (`event`, `utm`…). Le journal de trafic (`type="traffic"`) est de loin le plus volumineux : le relais le jette, sauf avec `keep_traffic_log = true` dans `module "observability"`.
 
 ## Détruire
 
@@ -61,12 +61,13 @@ scw instance security-group list zone=fr-par-1 project-id=<id-projet>
 scw instance security-group delete <id> zone=fr-par-1
 ```
 
-Faites de même dans `fr-par-2` si des VM y ont tourné.
+Faites de même dans `fr-par-2` si des VM y ont tourné. La même erreur vient aussi du nettoyage de la fonction de bascule, qui se termine après sa suppression : relancez alors `terraform destroy` une minute plus tard.
 
 ## Dépannage
 
 | Symptôme | Cause | Action |
 |---|---|---|
+| `insufficient permissions: read security_groups` au premier apply | projet créé quelques secondes plus tôt, droits pas encore propagés | relancer `terraform plan` puis `terraform apply` : les ressources en échec sont remplacées |
 | `stdio forwarding failed` en SSH vers un firewall | il démarre encore | attendre quelques minutes |
 | `Connection timed out during banner exchange` vers une VM | port fermé par la NACL du spoke | ajouter une règle `nacl_inbound` au spoke, puis appliquer |
 | plus de trafic via le hub ou vers Internet après une bascule | VIP restées sur l'ancien primaire, la fonction de bascule a échoué | lancer la ligne du primaire de `failover_commands` |
@@ -75,7 +76,8 @@ Faites de même dans `fr-par-2` si des VM y ont tourné.
 | le plan échoue sur `yamldecode` ou refuse la politique | erreur de syntaxe, alias inconnu, description en double ou contenant `<`, `>` ou `&` | corriger `policy.yaml` |
 | le plan refuse les CIDR | chevauchement entre `cidrs`, `spoke_supernet` et les CIDR on-prem | corriger les valeurs |
 | le certificat Edge Services n'est pas émis | le CNAME du FQDN manque | créer le CNAME vers `edge_cname_target` |
-| `resource is still in use` à la destruction | security group « Default » dans le projet | voir « Détruire » |
+| `resource is still in use` à la destruction | security group « Default » dans le projet, ou nettoyage de la fonction de bascule pas encore terminé | voir « Détruire » |
+| `Command cancelled by user` sur `execute ha failover set 1` | commande passée sans terminal (`ssh ... 'cmd'`) | ouvrir une session SSH interactive et répondre `y` |
 
 ## Limites connues
 
@@ -91,4 +93,3 @@ Faites de même dans `fr-par-2` si des VM y ont tourné.
 - Scaleway n'expose aucun timer BGP, BFD ou DPD : la vitesse de bascule entre les deux tunnels VPN se règle sur la passerelle on-prem.
 - Quand un spoke est ajouté, les VM déjà démarrées reçoivent ses routes par DHCP en une heure au plus.
 - Une organisation a 512 connecteurs de peering : 127 spokes sans bypass, 85 avec.
-- Le relais de journaux filtre le journal de paquets sur `program="filterlog"`, un nom hérité d'OPNsense : il n'a pas été vérifié avec FortiGate.

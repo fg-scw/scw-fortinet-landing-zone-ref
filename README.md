@@ -37,6 +37,7 @@ modules/observability      relais syslog vers Cockpit (optionnel)
 ```bash
 export SCW_ACCESS_KEY=<clé> SCW_SECRET_KEY=<secret> SCW_DEFAULT_ORGANIZATION_ID=<id-organisation>
 export AWS_ACCESS_KEY_ID=$SCW_ACCESS_KEY AWS_SECRET_ACCESS_KEY=$SCW_SECRET_KEY   # accès au bucket du state
+scw object bucket create name=<bucket> region=fr-par enable-versioning=true      # privé par défaut
 ```
 
 ## Déploiement
@@ -44,13 +45,14 @@ export AWS_ACCESS_KEY_ID=$SCW_ACCESS_KEY AWS_SECRET_ACCESS_KEY=$SCW_SECRET_KEY  
 1. Importer le qcow2 FortiOS KVM d'usine (le `fortios.qcow2` du zip Fortinet, déposé dans un bucket de la région), un snapshot par zone :
 
    ```bash
+   aws s3 cp fortios.qcow2 s3://<bucket>/fortios.qcow2 --endpoint-url https://s3.fr-par.scw.cloud
    scw block snapshot import-from-object-storage zone=fr-par-1 bucket=<bucket> key=fortios.qcow2 name=fortios-<version>
    scw block snapshot import-from-object-storage zone=fr-par-2 bucket=<bucket> key=fortios.qcow2 name=fortios-<version>
    ```
 
    Ne démarrez jamais d'Instance sur ces snapshots à la main : un disque qui a déjà démarré ignore ses user data.
 
-2. Copier `terraform.tfvars.example` en `terraform.tfvars` et `backend.hcl.example` en `backend.hcl`, puis les remplir : identifiants des snapshots (`<zone>/<uuid>`), licences, `admin_cidrs`, spokes. Pour ajouter des règles au firewall, copier `policy.yaml.example` en `policy.yaml`. Les options avancées du hub (plan d'adressage, numéros d'hôte, taille des Public Gateways) sont des arguments de `module "hub"` dans `main.tf`, décrits dans `modules/hub/variables.tf`.
+2. Copier `terraform.tfvars.example` en `terraform.tfvars` et `backend.hcl.example` en `backend.hcl`, puis les remplir : identifiants des snapshots (`<zone>/<uuid>`), licences, `admin_cidrs`, spokes. Avec `observability = true`, gardez `firewall.syslog` sur l'adresse du relais dès ce premier apply : un nœud ne lit ce réglage qu'à sa création. Pour ajouter des règles au firewall, copier `policy.yaml.example` en `policy.yaml`. Les options avancées du hub (plan d'adressage, numéros d'hôte, taille des Public Gateways) sont des arguments de `module "hub"` dans `main.tf`, décrits dans `modules/hub/variables.tf`.
 
 3. Déployer :
 
