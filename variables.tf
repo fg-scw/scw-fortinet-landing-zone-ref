@@ -26,7 +26,7 @@ variable "firewall" {
 }
 
 variable "edge_services_plan" {
-  description = "Edge Services subscription of the hub project, for hub endpoints using Edge. null = none."
+  description = "Edge Services subscription of the project, for endpoints using Edge. null = none."
   type        = string
   default     = null
 }
@@ -44,7 +44,7 @@ variable "interlink" {
 }
 
 variable "spokes" {
-  description = "Spoke registry: name -> index, hybrid_bypass, edge_services_plan, nacl_inbound, intra_pn (see modules/spoke)."
+  description = "Spoke registry: name -> index, hybrid_bypass, nacl_inbound, intra_pn (see modules/spoke)."
   type        = any
   default     = {}
 }

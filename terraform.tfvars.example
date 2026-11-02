@@ -21,9 +21,8 @@ firewall = {
 # 10.64.0.0/12, Private /21 from 10.96.0.0/11. Never renumber a live spoke.
 spokes = {
   genomic = {
-    index              = 1
-    hybrid_bypass      = false # true: Private VPC peered with Interlink, no firewall
-    edge_services_plan = "starter"
+    index         = 1
+    hybrid_bypass = false # true: Private VPC peered with Interlink, no firewall
     nacl_inbound = [
       { to = "private", source = "10.0.4.0/24", port = 8080, description = "Hub load balancers to genomic backends" },
     ]
@@ -45,7 +44,8 @@ endpoints = {
 # Syslog relay to Cockpit. Off when the customer has its own SIEM.
 observability = true
 
-# edge_services_plan = "starter" # hub endpoints using Edge Services
+# Edge Services subscription of the project, for endpoints using Edge.
+edge_services_plan = "starter"
 
 # vpn = {
 #   customer_gateway_ip = "198.51.100.1"

@@ -1,4 +1,4 @@
-# Hub-imposed Network ACLs (the spoke group only has VPCReadOnly). NACLs are
+# Network ACLs imposed on the spoke VPCs. NACLs are
 # stateless and default-deny: the spoke may open any connection outwards, Pub may
 # open any connection to Private, and from outside the spoke only nacl_inbound
 # (var.spokes) and the stateless return rules let traffic in. The return rules

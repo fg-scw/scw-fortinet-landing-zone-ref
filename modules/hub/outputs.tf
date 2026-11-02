@@ -6,6 +6,7 @@ output "project_id" {
 output "spoke_contract" {
   description = "Everything a spoke needs to attach itself to the hub and the hybrid VPC."
   value = {
+    project_id      = local.project_id
     hub_vpc_id      = scaleway_vpc.this["hub"].id
     hybrid_vpc_id   = scaleway_vpc.this["hybrid"].id
     spoke_pools     = local.spoke_pools
@@ -13,6 +14,8 @@ output "spoke_contract" {
     # Zones of the spoke baseline security groups (those of the firewalls).
     zones = sort(distinct([for n in values(var.firewall.nodes) : n.zone]))
   }
+  # Spoke endpoints use the Edge Services plan of the hub project.
+  depends_on = [scaleway_edge_services_plan.this]
 }
 
 # Contract consumed by the hub endpoints (LB / Edge Services in Egress).

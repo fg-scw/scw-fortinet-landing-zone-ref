@@ -27,13 +27,11 @@ output "interlink" {
 }
 
 output "spokes" {
-  description = "Project, CIDRs, Private Networks and security groups of each spoke."
+  description = "CIDRs, Private Networks and security groups of each spoke."
   value = { for k, s in module.spoke : k => {
-    project_id          = s.project_id
     cidrs               = s.cidrs
     private_network_ids = s.private_network_ids
     security_group_ids  = s.security_group_ids
-    iam_group_id        = s.iam_group_id
   } }
 }
 

@@ -6,11 +6,11 @@ Après chaque modification : `terraform plan`, relecture, puis `terraform apply`
 
 Ajoutez une entrée à `spokes` dans `terraform.tfvars`, avec un `index` unique entre 0 et 1023, puis appliquez. Le firewall n'est pas modifié. Ne changez jamais l'`index` d'un spoke existant : il fixe ses adresses.
 
-Dans la même entrée, `nacl_inbound` ouvre un flux entrant, `hybrid_bypass = true` relie le spoke à Interlink (il faut alors `interlink`) et `edge_services_plan` active Edge Services. Les membres du groupe IAM du spoke se gèrent hors Terraform.
+Dans la même entrée, `nacl_inbound` ouvre un flux entrant et `hybrid_bypass = true` relie le spoke à Interlink (il faut alors `interlink`). Edge Services s'active pour tout le projet, avec `edge_services_plan`.
 
 ## Retirer un spoke
 
-L'équipe du spoke vide d'abord son projet (instances, LB, volumes, bases, buckets). Retirez ensuite ses expositions de `endpoints` et son entrée de `spokes`, puis appliquez. Ne réutilisez pas son `index` tant que le projet existe encore.
+Supprimez d'abord ce qui est attaché aux Private Networks du spoke (instances, LB, bases). Retirez ensuite ses expositions de `endpoints` et son entrée de `spokes`, puis appliquez.
 
 ## Changer la politique du firewall
 
@@ -48,16 +48,16 @@ Pour brancher les firewalls sur le relais, recopiez `syslog_target` (sortie `obs
 
 ## Détruire
 
-Supprimez d'abord les ressources créées dans les spokes (instances, LB, volumes, bases, buckets) et notez leurs `project_id` (`terraform output spokes`). Puis :
+Supprimez d'abord les ressources créées hors Terraform dans le projet (instances, LB, volumes, bases, buckets). Puis :
 
 ```bash
 terraform destroy
 ```
 
-Si l'erreur `resource is still in use` apparaît, supprimez les security groups « Default » que Scaleway a créés dans le projet du spoke, puis relancez :
+Si l'erreur `resource is still in use` apparaît, supprimez les security groups « Default » que Scaleway a créés dans le projet, puis relancez :
 
 ```bash
-scw instance security-group list zone=fr-par-1 project-id=<id-projet-spoke>
+scw instance security-group list zone=fr-par-1 project-id=<id-projet>
 scw instance security-group delete <id> zone=fr-par-1
 ```
 
@@ -75,17 +75,18 @@ Faites de même dans `fr-par-2` si des VM y ont tourné.
 | le plan échoue sur `yamldecode` ou refuse la politique | erreur de syntaxe, alias inconnu, description en double ou contenant `<`, `>` ou `&` | corriger `policy.yaml` |
 | le plan refuse les CIDR | chevauchement entre `cidrs`, `spoke_supernet` et les CIDR on-prem | corriger les valeurs |
 | le certificat Edge Services n'est pas émis | le CNAME du FQDN manque | créer le CNAME vers `edge_cname_target` |
-| `resource is still in use` à la destruction d'un spoke | security group « Default » dans le projet | voir « Détruire » |
+| `resource is still in use` à la destruction | security group « Default » dans le projet | voir « Détruire » |
 
 ## Limites connues
 
 - Redis, MongoDB, Kafka, OpenSearch et ClickHouse ne suivent pas le routage VPC : ils ne sont joignables que depuis leur Private Network.
-- Les chemins Internet qu'un spoke crée lui-même ne passent pas par le firewall : IP publique d'instance, Load Balancer, nœuds Kapsule avec IP publique. Le contrôle passe par l'IAM et par un inventaire des projets spoke (`scw instance ip list project-id=<projet>`, `scw lb list project-id=<projet>`). Retirer `InstancesFullAccess`, `LoadBalancersFullAccess` ou `KubernetesFullAccess` de `iam_permission_sets` (argument de `module "spoke"` dans `main.tf`) ferme ces voies.
+- L'IAM Scaleway s'applique à un projet entier, pas à un VPC : tout opérateur du projet a les mêmes droits sur chaque spoke, sur le hub et sur les firewalls. Pour séparer des équipes, prenez la branche `hub-spoke-multi-project`.
+- Les chemins Internet créés dans le projet ne passent pas par le firewall : IP publique d'instance, Load Balancer, nœuds Kapsule avec IP publique. Le contrôle passe par un inventaire (`scw instance ip list project-id=<projet>`, `scw lb list project-id=<projet>`).
 - Le state contient le mot de passe `admin`, le mot de passe HA, les user data des firewalls (licences comprises) et les clés API de bascule : protégez le bucket.
 - Par défaut, les règles sont en *sloppy state* : le firewall ne vérifie pas les numéros de séquence TCP, ce qui permet aux sessions de survivre à une bascule. Elles ne survivent jamais à la perte d'une Public Gateway, car l'IP publique change.
 - `policy.nat_outbound` n'est pas pris en charge : le trafic Internet des spokes est traduit vers la VIP egress par la règle `[EGRESS]`.
 - Dans les NACL, les retours sont ouverts en TCP et UDP sur 32768-65535 depuis toute source. Un service qui écoute sur ces ports est joignable de l'extérieur du spoke, sauf sur une instance qui porte le security group de référence du spoke. Le firewall filtre ce qui vient du hub, pas le bypass Interlink. Pas de NACL ni de routes IPv6.
-- Le filtrage a trois niveaux : le firewall entre VPC, les NACL aux frontières des VPC spoke, et les security groups sur les cartes Private Network (sortie `security_group_ids`, à poser par l'équipe du spoke sur ses instances). L'équipe du spoke peut modifier ou détacher ces groupes : le contrôle passe par Audit Trail et un inventaire des cartes sans groupe. Un security group sur une carte Private Network y désactive l'IPv6.
+- Le filtrage a trois niveaux : le firewall entre VPC, les NACL aux frontières des VPC spoke, et les security groups sur les cartes Private Network (sortie `security_group_ids`, à poser sur les instances). Tout opérateur du projet peut modifier ou détacher ces groupes : le contrôle passe par Audit Trail et un inventaire des cartes sans groupe. Un security group sur une carte Private Network y désactive l'IPv6.
 - Le trafic d'Edge Services vers les Load Balancers est en HTTP, non chiffré.
 - Scaleway n'expose aucun timer BGP, BFD ou DPD : la vitesse de bascule entre les deux tunnels VPN se règle sur la passerelle on-prem.
 - Quand un spoke est ajouté, les VM déjà démarrées reçoivent ses routes par DHCP en une heure au plus.

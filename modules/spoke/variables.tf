@@ -1,5 +1,5 @@
 variable "name" {
-  description = "Spoke key in the registry; also the project and resource name suffix."
+  description = "Spoke key in the registry; also the resource name suffix."
   type        = string
 
   validation {
@@ -16,8 +16,6 @@ variable "registry" {
     # Baseline security groups accept traffic inside each Private Network;
     # false closes it (workloads then need their own groups to talk).
     intra_pn = optional(bool, true)
-    # Edge Services subscription of the spoke project (e.g. starter), null = none.
-    edge_services_plan = optional(string)
     # Flows allowed INTO the spoke from outside it (on-prem, hub, other spokes once
     # the firewall allows them). The spoke NACL drops everything else, except the
     # stateless return range (TCP/UDP 32768-65535 from anywhere, nacl.tf).
@@ -57,30 +55,11 @@ variable "registry" {
 variable "hub" {
   description = "Hub outputs consumed by the spoke (module.hub.spoke_contract)."
   type = object({
+    project_id      = string
     hub_vpc_id      = string
     hybrid_vpc_id   = string
     spoke_pools     = object({ pub = string, private = string })
     interlink_cidrs = list(string)
     zones           = list(string)
   })
-}
-
-variable "iam_permission_sets" {
-  description = "Permission sets granted to the spoke group on its project. No VPC, gateway, VPN or Interlink rights: network stays under hub control."
-  type        = list(string)
-  default = [
-    "InstancesFullAccess",
-    "BlockStorageFullAccess",
-    "LoadBalancersFullAccess",
-    "EdgeServicesFullAccess",
-    "KubernetesFullAccess",
-    "RelationalDatabasesFullAccess",
-    "ObjectStorageFullAccess",
-    "SecretManagerFullAccess",
-    "ObservabilityFullAccess",
-    "IPAMFullAccess",
-    "PrivateNetworksReadOnly",
-    "VPCReadOnly",
-  ]
-  nullable = false
 }

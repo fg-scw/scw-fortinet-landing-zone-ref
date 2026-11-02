@@ -1,4 +1,4 @@
-# One spoke: its own project, a Pub VPC peered to the hub and a
+# One spoke, in the hub project: a Pub VPC peered to the hub and a
 # Private VPC behind it. Every flow leaving the spoke is inspected by the central
 # firewall; Private may bypass it only towards on-prem over Interlink.
 #
@@ -19,16 +19,11 @@ locals {
   bypass = local.spoke.hybrid_bypass && length(var.hub.interlink_cidrs) > 0
 }
 
-resource "scaleway_account_project" "this" {
-  name        = local.prefix
-  description = "Landing zone spoke ${var.name}"
-}
-
 # --- VPCs -------------------------------------------------------------------
 
 resource "scaleway_vpc" "pub" {
   name                             = "${local.prefix}-vpc-pub"
-  project_id                       = scaleway_account_project.this.id
+  project_id                       = var.hub.project_id
   enable_routing                   = true
   enable_custom_routes_propagation = true
   enable_transitivity              = true # Private reaches the hub through Pub. Immutable.
@@ -37,7 +32,7 @@ resource "scaleway_vpc" "pub" {
 
 resource "scaleway_vpc" "private" {
   name                             = "${local.prefix}-vpc-private"
-  project_id                       = scaleway_account_project.this.id
+  project_id                       = var.hub.project_id
   enable_routing                   = true
   enable_custom_routes_propagation = true
   tags                             = local.tags
@@ -45,7 +40,7 @@ resource "scaleway_vpc" "private" {
 
 resource "scaleway_vpc_private_network" "pub" {
   name                             = "${local.prefix}-pn-pub"
-  project_id                       = scaleway_account_project.this.id
+  project_id                       = var.hub.project_id
   vpc_id                           = scaleway_vpc.pub.id
   enable_default_route_propagation = false
   tags                             = local.tags
@@ -54,7 +49,7 @@ resource "scaleway_vpc_private_network" "pub" {
 
 resource "scaleway_vpc_private_network" "private" {
   name                             = "${local.prefix}-pn-private"
-  project_id                       = scaleway_account_project.this.id
+  project_id                       = var.hub.project_id
   vpc_id                           = scaleway_vpc.private.id
   enable_default_route_propagation = false
   tags                             = local.tags
@@ -163,30 +158,4 @@ resource "scaleway_vpc_route" "hybrid_return" {
   destination              = local.private_cidr
   nexthop_vpc_connector_id = scaleway_vpc_connector.hybrid_to_private[0].id
   tags                     = local.tags
-}
-
-# Per-project subscription required by Edge Services pipelines (endpoints).
-resource "scaleway_edge_services_plan" "this" {
-  count = local.spoke.edge_services_plan == null ? 0 : 1
-
-  name       = local.spoke.edge_services_plan
-  project_id = scaleway_account_project.this.id
-}
-
-# --- IAM: spoke team manages workloads, never the network -----------------------
-
-resource "scaleway_iam_group" "this" {
-  name                = local.prefix
-  description         = "Spoke ${var.name} operators (membership managed outside Terraform)"
-  external_membership = true
-}
-
-resource "scaleway_iam_policy" "this" {
-  name     = local.prefix
-  group_id = scaleway_iam_group.this.id
-
-  rule {
-    project_ids          = [scaleway_account_project.this.id]
-    permission_set_names = var.iam_permission_sets
-  }
 }

@@ -1,4 +1,4 @@
-<svg width="1780" height="1120" viewBox="0 0 1780 1120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vue d&#x27;ensemble : tout flux qui sort d&#x27;un spoke traverse la paire FortiGate du hub ; chaque spoke a son propre projet.">
+<svg width="1780" height="1140" viewBox="0 0 1780 1140" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vue d&#x27;ensemble : tout flux qui sort d&#x27;un spoke traverse la paire FortiGate du hub ; hub et spokes partagent un seul projet.">
 <defs>
 <symbol id="i-fw" viewBox="1045 123 60 60"><path d="M1045 138C1045 129.716 1051.72 123 1060 123H1090C1098.28 123 1105 129.716 1105 138V168C1105 176.284 1098.28 183 1090 183H1060C1051.72 183 1045 176.284 1045 168V138Z" fill="#521094"/>
 <path d="M1090 124.875H1060C1052.75 124.875 1046.88 130.751 1046.88 138V168C1046.88 175.249 1052.75 181.125 1060 181.125H1090C1097.25 181.125 1103.13 175.249 1103.13 168V138C1103.13 130.751 1097.25 124.875 1090 124.875ZM1060 123C1051.72 123 1045 129.716 1045 138V168C1045 176.284 1051.72 183 1060 183H1090C1098.28 183 1105 176.284 1105 168V138C1105 129.716 1098.28 123 1090 123H1060Z" fill-rule="evenodd" clip-rule="evenodd" fill="#521094"/>
@@ -15,70 +15,72 @@
 <marker id="a-grey" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="16" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#6D717C"/></marker>
 <marker id="a-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="16" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#521094"/></marker>
 </defs>
-<rect x="40" y="40" width="1700" height="1040" rx="12" fill="white" stroke="#E6E6E6" stroke-width="4"/>
-<rect x="80" y="230" width="920" height="690" rx="10" fill="#FAF8FF" stroke="#BF95F9" stroke-width="3"/><text x="104" y="270" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#521094" text-anchor="start">Projet hub</text><text x="104" y="298" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6D717C" text-anchor="start">firewalls, Internet, VPN, Interlink</text>
-<rect x="1060" y="230" width="640" height="690" rx="10" fill="#FAF8FF" stroke="#BF95F9" stroke-width="3"/><text x="1084" y="270" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#521094" text-anchor="start">Projets spoke</text><text x="1084" y="298" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6D717C" text-anchor="start">un projet et un groupe IAM par spoke · × N</text>
+<rect x="40" y="40" width="1700" height="1060" rx="12" fill="white" stroke="#E6E6E6" stroke-width="4"/>
+<rect x="60" y="200" width="1660" height="740" rx="10" fill="#FAF8FF" stroke="#BF95F9" stroke-width="3"/><text x="84" y="240" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#521094" text-anchor="start"></text><text x="84" y="268" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6D717C" text-anchor="start"></text>
+<text x="84" y="238" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="24" font-weight="700" fill="#521094" text-anchor="start">Projet unique</text>
+<rect x="80" y="250" width="920" height="670" rx="10" fill="#FAF8FF" stroke="#BF95F9" stroke-width="2" stroke-dasharray="10 7"/><text x="104" y="290" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="24" font-weight="700" fill="#521094" text-anchor="start">Hub</text><text x="104" y="318" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6D717C" text-anchor="start">firewalls, Internet, VPN, Interlink</text>
+<rect x="1060" y="250" width="640" height="670" rx="10" fill="#FAF8FF" stroke="#BF95F9" stroke-width="2" stroke-dasharray="10 7"/><text x="1084" y="290" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="24" font-weight="700" fill="#521094" text-anchor="start">Spokes</text><text x="1084" y="318" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6D717C" text-anchor="start">dans le projet du hub · × N</text>
 <rect x="360" y="90" width="240" height="80" rx="6" fill="white" stroke="#6D717C" stroke-width="3" stroke-dasharray="12 8" stroke-linecap="round"/>
 <text x="480.0" y="128.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="middle">Sites on-prem</text>
 <text x="480.0" y="154.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6D717C" text-anchor="middle">customer gateway</text>
 <rect x="680" y="90" width="260" height="80" rx="6" fill="white" stroke="#6D717C" stroke-width="3" stroke-dasharray="12 8" stroke-linecap="round"/>
 <text x="810.0" y="128.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="middle">Internet</text>
 <text x="810.0" y="154.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6D717C" text-anchor="middle"></text>
-<rect x="110" y="320" width="860" height="150" rx="8" fill="white" stroke="#6D717C" stroke-width="2.5" stroke-dasharray="10 7"/><text x="130" y="350" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="start">VPC Egress</text>
-<rect x="360" y="360" width="240" height="90" rx="7" fill="#EDE8FD" stroke="#A084FB" stroke-width="1.4"/>
-<text x="480.0" y="405.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#521094" text-anchor="middle">VPN ×2</text>
-<text x="480.0" y="429.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#6D717C" text-anchor="middle">IPsec · BGP</text>
-<rect x="680" y="360" width="260" height="90" rx="7" fill="#EDE8FD" stroke="#A084FB" stroke-width="1.4"/>
-<text x="810.0" y="417.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#521094" text-anchor="middle">Public GW ×2</text>
-<text x="810.0" y="441.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#6D717C" text-anchor="middle">NAT · bastion</text>
-<use href="#i-pgw" x="780.0" y="330" width="60" height="60"/>
-<rect x="110" y="520" width="860" height="180" rx="8" fill="white" stroke="#6D717C" stroke-width="2.5" stroke-dasharray="10 7"/><text x="130" y="550" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="start">VPC Hub</text>
-<rect x="170" y="570" width="220" height="110" rx="7" fill="#EDE8FD" stroke="#A084FB" stroke-width="1.4"/>
-<text x="280.0" y="637.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#521094" text-anchor="middle">fw1</text>
-<text x="280.0" y="661.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#6D717C" text-anchor="middle">actif · zone 1</text>
-<use href="#i-fw" x="250.0" y="540" width="60" height="60"/>
-<rect x="520" y="570" width="220" height="110" rx="7" fill="#EDE8FD" stroke="#A084FB" stroke-width="1.4" stroke-dasharray="8 6"/>
-<text x="630.0" y="637.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#521094" text-anchor="middle">fw2</text>
-<text x="630.0" y="661.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#6D717C" text-anchor="middle">passif · zone 2</text>
-<use href="#i-fw" x="600.0" y="540" width="60" height="60"/>
-<rect x="790" y="585" width="150" height="80" rx="6" fill="white" stroke="#6D717C" stroke-width="3"/>
-<text x="865.0" y="623.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="middle">VIP hub</text>
-<text x="865.0" y="649.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6D717C" text-anchor="middle">→ fw actif</text>
-<rect x="110" y="730" width="420" height="150" rx="8" fill="white" stroke="#6D717C" stroke-width="2.5" stroke-dasharray="10 7"/><text x="130" y="760" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="start">VPC Mgmt</text>
-<text x="320" y="820" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6D717C" text-anchor="middle">admin par le bastion · port2</text>
-<rect x="550" y="730" width="420" height="150" rx="8" fill="white" stroke="#6D717C" stroke-width="2.5" stroke-dasharray="10 7"/><text x="570" y="760" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="start">VPC Hybrid</text>
-<text x="760" y="820" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6D717C" text-anchor="middle">Interlink, en option</text>
-<rect x="1114" y="334" width="560" height="560" rx="8" fill="white" stroke="#6D717C" stroke-width="2"/>
-<rect x="1102" y="322" width="560" height="560" rx="8" fill="white" stroke="#6D717C" stroke-width="2"/>
-<rect x="1090" y="310" width="560" height="560" rx="8" fill="white" stroke="#6D717C" stroke-width="2.5"/><text x="1110" y="340" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="start">Spoke genomic</text>
-<rect x="1120" y="360" width="500" height="170" rx="8" fill="white" stroke="#6D717C" stroke-width="2.5" stroke-dasharray="10 7"/><text x="1140" y="390" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="start">VPC Pub</text>
-<rect x="1300" y="400" width="260" height="100" rx="7" fill="#EDE8FD" stroke="#A084FB" stroke-width="1.4"/>
-<text x="1430.0" y="450.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#521094" text-anchor="middle">Load Balancer</text>
-<text x="1430.0" y="474.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#6D717C" text-anchor="middle">Edge Services en option</text>
-<rect x="1120" y="620" width="500" height="230" rx="8" fill="white" stroke="#6D717C" stroke-width="2.5" stroke-dasharray="10 7"/><text x="1140" y="650" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="start">VPC Private</text>
-<rect x="1300" y="680" width="260" height="100" rx="7" fill="#EDE8FD" stroke="#A084FB" stroke-width="1.4"/>
-<text x="1430.0" y="730.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#521094" text-anchor="middle">VM</text>
-<text x="1430.0" y="754.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#6D717C" text-anchor="middle">charges de travail</text>
-<path d="M480 172 L480 358" stroke="#6D717C" stroke-width="3" fill="none" stroke-linejoin="round" marker-end="url(#a-grey)"/>
+<rect x="110" y="340" width="860" height="150" rx="8" fill="white" stroke="#6D717C" stroke-width="2.5" stroke-dasharray="10 7"/><text x="130" y="370" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="start">VPC Egress</text>
+<rect x="360" y="380" width="240" height="90" rx="7" fill="#EDE8FD" stroke="#A084FB" stroke-width="1.4"/>
+<text x="480.0" y="425.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#521094" text-anchor="middle">VPN ×2</text>
+<text x="480.0" y="449.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#6D717C" text-anchor="middle">IPsec · BGP</text>
+<rect x="680" y="380" width="260" height="90" rx="7" fill="#EDE8FD" stroke="#A084FB" stroke-width="1.4"/>
+<text x="810.0" y="437.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#521094" text-anchor="middle">Public GW ×2</text>
+<text x="810.0" y="461.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#6D717C" text-anchor="middle">NAT · bastion</text>
+<use href="#i-pgw" x="780.0" y="350" width="60" height="60"/>
+<rect x="110" y="540" width="860" height="180" rx="8" fill="white" stroke="#6D717C" stroke-width="2.5" stroke-dasharray="10 7"/><text x="130" y="570" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="start">VPC Hub</text>
+<rect x="170" y="590" width="220" height="110" rx="7" fill="#EDE8FD" stroke="#A084FB" stroke-width="1.4"/>
+<text x="280.0" y="657.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#521094" text-anchor="middle">fw1</text>
+<text x="280.0" y="681.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#6D717C" text-anchor="middle">actif · zone 1</text>
+<use href="#i-fw" x="250.0" y="560" width="60" height="60"/>
+<rect x="520" y="590" width="220" height="110" rx="7" fill="#EDE8FD" stroke="#A084FB" stroke-width="1.4" stroke-dasharray="8 6"/>
+<text x="630.0" y="657.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#521094" text-anchor="middle">fw2</text>
+<text x="630.0" y="681.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#6D717C" text-anchor="middle">passif · zone 2</text>
+<use href="#i-fw" x="600.0" y="560" width="60" height="60"/>
+<rect x="790" y="605" width="150" height="80" rx="6" fill="white" stroke="#6D717C" stroke-width="3"/>
+<text x="865.0" y="643.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="middle">VIP hub</text>
+<text x="865.0" y="669.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6D717C" text-anchor="middle">→ fw actif</text>
+<rect x="110" y="750" width="420" height="130" rx="8" fill="white" stroke="#6D717C" stroke-width="2.5" stroke-dasharray="10 7"/><text x="130" y="780" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="start">VPC Mgmt</text>
+<text x="320" y="830" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6D717C" text-anchor="middle">admin par le bastion · port2</text>
+<rect x="550" y="750" width="420" height="130" rx="8" fill="white" stroke="#6D717C" stroke-width="2.5" stroke-dasharray="10 7"/><text x="570" y="780" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="start">VPC Hybrid</text>
+<text x="760" y="830" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6D717C" text-anchor="middle">Interlink, en option</text>
+<rect x="1114" y="354" width="560" height="540" rx="8" fill="white" stroke="#6D717C" stroke-width="2"/>
+<rect x="1102" y="342" width="560" height="540" rx="8" fill="white" stroke="#6D717C" stroke-width="2"/>
+<rect x="1090" y="330" width="560" height="540" rx="8" fill="white" stroke="#6D717C" stroke-width="2.5"/><text x="1110" y="360" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="start">Spoke genomic</text>
+<rect x="1120" y="380" width="500" height="170" rx="8" fill="white" stroke="#6D717C" stroke-width="2.5" stroke-dasharray="10 7"/><text x="1140" y="410" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="start">VPC Pub</text>
+<rect x="1300" y="420" width="260" height="100" rx="7" fill="#EDE8FD" stroke="#A084FB" stroke-width="1.4"/>
+<text x="1430.0" y="470.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#521094" text-anchor="middle">Load Balancer</text>
+<text x="1430.0" y="494.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#6D717C" text-anchor="middle">Edge Services en option</text>
+<rect x="1120" y="640" width="500" height="210" rx="8" fill="white" stroke="#6D717C" stroke-width="2.5" stroke-dasharray="10 7"/><text x="1140" y="670" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#6D717C" text-anchor="start">VPC Private</text>
+<rect x="1300" y="700" width="260" height="90" rx="7" fill="#EDE8FD" stroke="#A084FB" stroke-width="1.4"/>
+<text x="1430.0" y="745.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#521094" text-anchor="middle">VM</text>
+<text x="1430.0" y="769.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#6D717C" text-anchor="middle">charges de travail</text>
+<path d="M480 172 L480 378" stroke="#6D717C" stroke-width="3" fill="none" stroke-linejoin="round" marker-end="url(#a-grey)"/>
 <rect x="454" y="199" width="52" height="26" fill="white"/><text x="480" y="215" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#1C1C1C" text-anchor="middle">IPsec</text>
-<path d="M810 318 L810 172" stroke="#6D717C" stroke-width="3" fill="none" stroke-linejoin="round" marker-end="url(#a-grey)"/>
+<path d="M810 338 L810 172" stroke="#6D717C" stroke-width="3" fill="none" stroke-linejoin="round" marker-end="url(#a-grey)"/>
 <rect x="760" y="199" width="100" height="26" fill="white"/><text x="810" y="215" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#1C1C1C" text-anchor="middle">NAT sortant</text>
-<path d="M250 518 L250 472" stroke="#6D717C" stroke-width="3" fill="none" stroke-linejoin="round" marker-end="url(#a-grey)"/>
-<rect x="216" y="485" width="68" height="26" fill="white"/><text x="250" y="501" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#1C1C1C" text-anchor="middle">peering</text>
-<line x1="392" y1="625" x2="518" y2="625" stroke="#4AA8F0" stroke-width="5"/>
-<rect x="433" y="615" width="44" height="26" fill="white"/><text x="455" y="631" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#1C1C1C" text-anchor="middle">FGCP</text>
-<path d="M1120 445 L1030 445 L1030 625 L942 625" stroke="#521094" stroke-width="4" fill="none" stroke-linejoin="round" stroke-dasharray="14 9" marker-end="url(#a-purple)"/>
-<g transform="rotate(-90 1030 535)"><rect x="960" y="525" width="140" height="26" fill="white"/><text x="1030" y="541" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#521094" text-anchor="middle">route par défaut</text></g>
-<path d="M1210 618 L1210 532" stroke="#521094" stroke-width="4" fill="none" stroke-linejoin="round" stroke-dasharray="14 9" marker-end="url(#a-purple)"/>
-<rect x="1176" y="565" width="68" height="26" fill="white"/><text x="1210" y="581" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#521094" text-anchor="middle">peering</text>
-<path d="M972 805 L1118 805" stroke="#6D717C" stroke-width="4" fill="none" stroke-linejoin="round" stroke-dasharray="14 9" marker-end="url(#a-grey)"/>
-<rect x="1015" y="795" width="60" height="26" fill="white"/><text x="1045" y="811" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#1C1C1C" text-anchor="middle">bypass</text>
-<path d="M942 130 L1430 130 L1430 398" stroke="#6D717C" stroke-width="3" fill="none" stroke-linejoin="round" marker-end="url(#a-grey)"/>
+<path d="M250 538 L250 492" stroke="#6D717C" stroke-width="3" fill="none" stroke-linejoin="round" marker-end="url(#a-grey)"/>
+<rect x="216" y="505" width="68" height="26" fill="white"/><text x="250" y="521" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#1C1C1C" text-anchor="middle">peering</text>
+<line x1="392" y1="645" x2="518" y2="645" stroke="#4AA8F0" stroke-width="5"/>
+<rect x="433" y="635" width="44" height="26" fill="white"/><text x="455" y="651" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#1C1C1C" text-anchor="middle">FGCP</text>
+<path d="M1120 465 L1030 465 L1030 645 L942 645" stroke="#521094" stroke-width="4" fill="none" stroke-linejoin="round" stroke-dasharray="14 9" marker-end="url(#a-purple)"/>
+<g transform="rotate(-90 1030 555)"><rect x="960" y="545" width="140" height="26" fill="white"/><text x="1030" y="561" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#521094" text-anchor="middle">route par défaut</text></g>
+<path d="M1210 638 L1210 552" stroke="#521094" stroke-width="4" fill="none" stroke-linejoin="round" stroke-dasharray="14 9" marker-end="url(#a-purple)"/>
+<rect x="1176" y="585" width="68" height="26" fill="white"/><text x="1210" y="601" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#521094" text-anchor="middle">peering</text>
+<path d="M972 815 L1118 815" stroke="#6D717C" stroke-width="4" fill="none" stroke-linejoin="round" stroke-dasharray="14 9" marker-end="url(#a-grey)"/>
+<rect x="1015" y="805" width="60" height="26" fill="white"/><text x="1045" y="821" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#1C1C1C" text-anchor="middle">bypass</text>
+<path d="M942 130 L1430 130 L1430 418" stroke="#6D717C" stroke-width="3" fill="none" stroke-linejoin="round" marker-end="url(#a-grey)"/>
 <rect x="1100" y="120" width="180" height="26" fill="white"/><text x="1190" y="136" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#1C1C1C" text-anchor="middle">HTTPS · hors firewall</text>
-<path d="M1430 502 L1430 678" stroke="#6D717C" stroke-width="3" fill="none" stroke-linejoin="round" marker-end="url(#a-grey)"/>
-<rect x="1396" y="580" width="68" height="26" fill="white"/><text x="1430" y="596" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#1C1C1C" text-anchor="middle">backend</text>
-<text x="80" y="980" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#2C8564" text-anchor="start">✓ tout flux qui sort d&#x27;un spoke passe par la VIP du FortiGate actif</text>
-<text x="80" y="1014" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#2C8564" text-anchor="start">✓ aucune IP publique sur les firewalls</text>
-<text x="940" y="980" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#E05225" text-anchor="start">✕ hors firewall : le Load Balancer d&#x27;un spoke, Interlink en bypass</text>
-<text x="80" y="1048" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#2C8564" text-anchor="start">✓ les équipes spoke n&#x27;ont aucun droit sur le réseau</text>
+<path d="M1430 522 L1430 698" stroke="#6D717C" stroke-width="3" fill="none" stroke-linejoin="round" marker-end="url(#a-grey)"/>
+<rect x="1396" y="600" width="68" height="26" fill="white"/><text x="1430" y="616" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#1C1C1C" text-anchor="middle">backend</text>
+<text x="80" y="1000" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#2C8564" text-anchor="start">✓ tout flux qui sort d&#x27;un spoke passe par la VIP du FortiGate actif</text>
+<text x="80" y="1034" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#2C8564" text-anchor="start">✓ aucune IP publique sur les firewalls</text>
+<text x="940" y="1000" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#E05225" text-anchor="start">✕ hors firewall : le Load Balancer d&#x27;un spoke, Interlink en bypass</text>
+<text x="940" y="1034" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#E05225" text-anchor="start">✕ un seul projet : l&#x27;IAM ne sépare pas les spokes, seul le réseau les isole</text>
 </svg>

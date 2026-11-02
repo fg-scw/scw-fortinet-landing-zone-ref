@@ -37,11 +37,11 @@ Terraform range dans les user data cloud-init de l'Instance la licence du nœud,
 
 <img alt="Premier démarrage : Terraform écrit les user data, FortiOS les lit une seule fois sur le CD-ROM NoCloud, puis fortigate.sh vérifie le nœud par le bastion et pousse la politique." src="lz-provisioning.svg">
 
-Un nœud est prêt en 3 min 30 environ, et les deux démarrent en parallèle. `fortigate.sh ready` vérifie alors chaque nœud par le bastion (clé `admin` acceptée, licence valide, ports dans le bon ordre), puis `fortigate.sh policy` pousse la politique sur le primaire, qui la synchronise. Terraform efface enfin les user data de l'Instance, qui contiennent la licence et les mots de passe. Pendant les quelques minutes du premier démarrage, l'API Instance permet de les lire : réservez le projet du hub aux opérateurs.
+Un nœud est prêt en 3 min 30 environ, et les deux démarrent en parallèle. `fortigate.sh ready` vérifie alors chaque nœud par le bastion (clé `admin` acceptée, licence valide, ports dans le bon ordre), puis `fortigate.sh policy` pousse la politique sur le primaire, qui la synchronise. Terraform efface enfin les user data de l'Instance, qui contiennent la licence et les mots de passe. Pendant les quelques minutes du premier démarrage, l'API Instance permet de les lire, à tout opérateur du projet.
 
 ## Bascule
 
-Le routeur du VPC suit la réservation IPAM de la VIP du Hub et ignore les ARP gratuits. Quand un nœud devient primaire, une automation FortiOS (événement 37892 `ha_role=primary`, répétée à 0, 10 et 30 s, plus un rattrapage toutes les heures) appelle une Serverless Function privée (`modules/hub/failover.tf`, `modules/hub/ipam_follow/handler.py`). La fonction déplace les deux VIP de données vers ce nœud dans l'IPAM. Le firewall ne détient qu'une clé IAM limitée à `FunctionsPrivateAccess`, et la clé de la fonction est limitée à `IPAMFullAccess` sur le projet du hub.
+Le routeur du VPC suit la réservation IPAM de la VIP du Hub et ignore les ARP gratuits. Quand un nœud devient primaire, une automation FortiOS (événement 37892 `ha_role=primary`, répétée à 0, 10 et 30 s, plus un rattrapage toutes les heures) appelle une Serverless Function privée (`modules/hub/failover.tf`, `modules/hub/ipam_follow/handler.py`). La fonction déplace les deux VIP de données vers ce nœud dans l'IPAM. Le firewall ne détient qu'une clé IAM limitée à `FunctionsPrivateAccess`, et la clé de la fonction est limitée à `IPAMFullAccess` sur le projet.
 
 <img alt="Bascule : le routeur VPC suit l'IPAM, pas le GARP ; le nouveau primaire FortiGate appelle une Serverless Function qui déplace la VIP dans l'IPAM." src="lz-ha.svg">
 

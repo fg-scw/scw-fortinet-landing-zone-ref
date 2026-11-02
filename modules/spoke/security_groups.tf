@@ -3,8 +3,8 @@
 # and enforced by the hypervisor, they add what the stateless NACLs cannot:
 # no service on an ephemeral port is reachable from outside the spoke, and the
 # Private Network itself can be closed (intra_pn: false). Sources come from
-# var.spokes, like the NACLs. The spoke group can edit or detach them
-# (InstancesFullAccess): the NACLs stay the guardrail. Instances only:
+# var.spokes, like the NACLs. Anyone with InstancesFullAccess on the
+# project can edit or detach them: the NACLs stay the guardrail. Instances only:
 # Kapsule nodes, Load Balancers and managed databases rely on the NACLs.
 # A security group on a private NIC also disables IPv6 autoconfiguration on
 # it (the landing zone is IPv4).
@@ -33,7 +33,7 @@ resource "scaleway_instance_security_group" "baseline" {
 
   name                    = "${local.prefix}-${each.value.tier}"
   description             = "Baseline for ${each.value.tier} Private Network interfaces (var.spokes)"
-  project_id              = scaleway_account_project.this.id
+  project_id              = var.hub.project_id
   zone                    = each.value.zone
   stateful                = true
   inbound_default_policy  = "drop"

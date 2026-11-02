@@ -84,7 +84,7 @@
 <text x="782" y="359" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="18" font-weight="500" fill="#6D717C" text-anchor="start">Hub · imposée</text>
 <text x="1175" y="273" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#6D717C" text-anchor="middle">avec état · spokes</text>
 <text x="1495" y="273" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#6D717C" text-anchor="middle">VM du spoke</text>
-<text x="940" y="621" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#E05225" text-anchor="start">✕ le spoke peut modifier son SG : la NACL reste la barrière</text>
+<text x="940" y="621" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#E05225" text-anchor="start">✕ tout opérateur du projet peut modifier un SG : la NACL reste la barrière</text>
 <defs>
 <clipPath id="clip0_0_1">
 <rect width="60" height="60" fill="white" transform="translate(455 153)"/>

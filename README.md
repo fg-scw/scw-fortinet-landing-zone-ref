@@ -1,12 +1,12 @@
 # Landing zone Scaleway hub & spoke avec FortiGate
 
-Socle réseau d'une organisation Scaleway, en Terraform. Le hub est un projet qui porte deux firewalls FortiGate en haute disponibilité FGCP actif-passif (un par zone), la sortie Internet, le VPN et Interlink. Chaque spoke a son propre projet et son groupe IAM. Ajouter un spoke ne touche pas aux firewalls.
+Socle réseau d'un projet Scaleway, en Terraform. Le hub porte deux firewalls FortiGate en haute disponibilité FGCP actif-passif (un par zone), la sortie Internet, le VPN et Interlink. Chaque spoke a ses deux VPC (Pub et Private) et ses NACL, dans le même projet que le hub. Ajouter un spoke ne touche pas aux firewalls.
 
 Tout flux qui sort d'un spoke, ou qui y entre depuis l'extérieur, passe par le firewall. Il y a deux exceptions : le contournement Interlink (`hybrid_bypass`) et ce qu'un spoke expose lui-même (Load Balancer, IP publique). Voir les [limites](docs/OPERATIONS.md#limites-connues).
 
-La branche `hub-spoke-single-project` met le hub et les spokes dans un seul projet.
+Dans un seul projet, l'IAM ne sépare pas les spokes : tout opérateur du projet agit sur tous les spokes et sur le hub. Cette variante convient à une seule équipe d'exploitation. La branche `hub-spoke-multi-project` donne à chaque spoke son propre projet et son groupe IAM.
 
-<img alt="Vue d'ensemble : tout flux qui sort d'un spoke traverse la paire FortiGate du hub ; chaque spoke a son propre projet." src="docs/lz-overview.svg">
+<img alt="Vue d'ensemble : tout flux qui sort d'un spoke traverse la paire FortiGate du hub ; hub et spokes partagent un seul projet." src="docs/lz-overview.svg">
 
 Les firewalls démarrent sur l'image d'usine de Fortinet et se configurent seuls au premier démarrage, avec les user data cloud-init de leur Instance. Terraform vérifie ensuite chaque nœud par le bastion et pousse la politique.
 
@@ -21,7 +21,7 @@ terraform.tfvars.example   modèle de configuration
 policy.yaml.example        modèle de politique firewall
 backend.hcl.example        modèle de backend S3 pour le state
 modules/hub                firewalls, VPC du hub, VPN, Interlink, bascule
-modules/spoke              projet, VPC Pub et Private, NACL et IAM d'un spoke
+modules/spoke              VPC Pub et Private, NACL et security groups d'un spoke
 modules/endpoint           Load Balancers et Edge Services
 modules/observability      relais syslog vers Cockpit (optionnel)
 ```
@@ -29,7 +29,7 @@ modules/observability      relais syslog vers Cockpit (optionnel)
 ## Prérequis
 
 - Terraform 1.10 ou plus récent, la CLI `scw` et `ssh` sur la machine qui déploie. `scw` démarre les firewalls une fois leurs cartes posées et efface leurs user data. `ssh` contrôle les nœuds par le bastion, depuis une adresse de `admin_cidrs`.
-- Une clé API d'organisation, d'administrateur par exemple : Terraform crée les projets et l'IAM, et les connecteurs de peering du hub se créent dans le projet du hub depuis chaque spoke.
+- Une clé API d'organisation, d'administrateur par exemple : Terraform crée le projet, ainsi que les applications et clés IAM de la bascule.
 - Un bucket Object Storage privé et versionné pour le state. Il contient le mot de passe `admin`, les licences et les clés API de bascule.
 - Une licence FortiGate-VM BYOL par nœud (fichier `.lic`, jamais versionné).
 - Les zones `fr-par-1` et `fr-par-2` (`fr-par-3` n'a ni Public Gateway ni Load Balancer).

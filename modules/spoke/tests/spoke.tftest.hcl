@@ -6,13 +6,13 @@ variables {
   registry = {
     genomic = { index = 0 }
     rh = {
-      index              = 5
-      hybrid_bypass      = true
-      edge_services_plan = "starter"
-      nacl_inbound       = [{ to = "private", source = "192.168.0.0/16", port = 5432 }]
+      index         = 5
+      hybrid_bypass = true
+      nacl_inbound  = [{ to = "private", source = "192.168.0.0/16", port = 5432 }]
     }
   }
   hub = {
+    project_id      = "33333333-3333-3333-3333-333333333333"
     hub_vpc_id      = "fr-par/11111111-1111-1111-1111-111111111111"
     hybrid_vpc_id   = "fr-par/22222222-2222-2222-2222-222222222222"
     spoke_pools     = { pub = "10.64.0.0/12", private = "10.96.0.0/11" }
@@ -64,8 +64,8 @@ run "slot_five_with_bypass" {
   }
 
   assert {
-    condition     = scaleway_vpc_acl.this["pub"].default_policy == "drop" && length(scaleway_edge_services_plan.this) == 1
-    error_message = "Default-deny NACL and the declared Edge Services plan are expected."
+    condition     = scaleway_vpc_acl.this["pub"].default_policy == "drop" && output.endpoint_target.project_id == var.hub.project_id
+    error_message = "Default-deny NACL; endpoints go to the hub project."
   }
 }
 
@@ -75,6 +75,7 @@ run "bypass_needs_interlink" {
   variables {
     name = "rh"
     hub = {
+      project_id      = "33333333-3333-3333-3333-333333333333"
       hub_vpc_id      = "fr-par/11111111-1111-1111-1111-111111111111"
       hybrid_vpc_id   = "fr-par/22222222-2222-2222-2222-222222222222"
       spoke_pools     = { pub = "10.64.0.0/12", private = "10.96.0.0/11" }

@@ -1,7 +1,3 @@
-output "project_id" {
-  value = scaleway_account_project.this.id
-}
-
 output "cidrs" {
   value = { pub = local.pub_cidr, private = local.private_cidr }
 }
@@ -16,15 +12,10 @@ output "private_network_ids" {
 # Contract consumed by the spoke endpoints (modules/endpoint).
 output "endpoint_target" {
   value = {
-    project_id         = scaleway_account_project.this.id
+    project_id         = var.hub.project_id
     private_network_id = scaleway_vpc_private_network.pub.id
     tags               = local.tags
   }
-  depends_on = [scaleway_edge_services_plan.this]
-}
-
-output "iam_group_id" {
-  value = scaleway_iam_group.this.id
 }
 
 output "hybrid_bypass" {
