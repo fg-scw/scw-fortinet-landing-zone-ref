@@ -121,7 +121,12 @@ ready() {
 
 policy() {
   local h primary=
-  for h in $FGT_HOSTS; do is_primary "$h" && { primary=$h; break; }; done
+  # Right after a rebuilt node joins, the cluster re-elects and the primary
+  # does not answer for a while: keep looking.
+  for _ in $(seq 20); do
+    for h in $FGT_HOSTS; do is_primary "$h" && { primary=$h; break 2; }; done
+    sleep 15
+  done
   [ -n "$primary" ] || { log "no primary among $FGT_HOSTS"; return 1; }
   FGT_HOST=$primary
   # Policy ids are positions: drop the ids the new policy no longer has.
