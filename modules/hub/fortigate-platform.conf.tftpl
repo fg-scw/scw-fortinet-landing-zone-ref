@@ -97,6 +97,7 @@ config log ${i == 0 ? "syslogd" : "syslogd${i + 1}"} setting
     set server "${l.host}"
     set port ${l.port}
     set mode ${l.transport == "tcp" ? "reliable" : "udp"}
+    set format rfc5424
 end
 %{ endfor ~}
 config system ha

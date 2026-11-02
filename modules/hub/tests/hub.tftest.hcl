@@ -350,10 +350,10 @@ run "remote_syslog" {
 
   assert {
     condition = alltrue([
-      can(regex("(?s)config log syslogd setting\\s+set status enable\\s+set server \"10.0.4.20\"\\s+set port 514\\s+set mode udp", terraform_data.fw_config["fw1"].input.platform)),
-      can(regex("(?s)config log syslogd2 setting\\s+set status enable\\s+set server \"logs.example.com\"\\s+set port 6514\\s+set mode reliable", terraform_data.fw_config["fw2"].input.platform)),
+      can(regex("(?s)config log syslogd setting\\s+set status enable\\s+set server \"10.0.4.20\"\\s+set port 514\\s+set mode udp\\s+set format rfc5424", terraform_data.fw_config["fw1"].input.platform)),
+      can(regex("(?s)config log syslogd2 setting\\s+set status enable\\s+set server \"logs.example.com\"\\s+set port 6514\\s+set mode reliable\\s+set format rfc5424", terraform_data.fw_config["fw2"].input.platform)),
     ])
-    error_message = "Syslog collectors go to syslogd, syslogd2..., TCP as reliable."
+    error_message = "Syslog collectors go to syslogd, syslogd2..., TCP as reliable, in RFC 5424."
   }
 }
 
