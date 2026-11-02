@@ -1,0 +1,4 @@
+bucket    = "my-landing-zone-state"
+key       = "landing-zone/terraform.tfstate"
+region    = "fr-par"
+endpoints = { s3 = "https://s3.fr-par.scw.cloud" }

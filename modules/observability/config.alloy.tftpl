@@ -1,4 +1,4 @@
-// Managed by Terraform (modules/observability). OPNsense syslog (RFC5424) -> Cockpit logs.
+// Managed by Terraform (modules/observability). FortiGate syslog (RFC5424) -> Cockpit logs.
 
 loki.relabel "syslog" {
   forward_to = []
@@ -17,18 +17,18 @@ loki.relabel "syslog" {
   }
 }
 
-loki.source.syslog "opnsense" {
+loki.source.syslog "fortigate" {
   listener {
     address       = "${ip}:514"
     protocol      = "udp"
     syslog_format = "rfc5424"
-    labels        = { job = "opnsense" }
+    labels        = { job = "fortigate" }
   }
   listener {
     address       = "${ip}:514"
     protocol      = "tcp"
     syslog_format = "rfc5424"
-    labels        = { job = "opnsense" }
+    labels        = { job = "fortigate" }
   }
 
   relabel_rules = loki.relabel.syslog.rules

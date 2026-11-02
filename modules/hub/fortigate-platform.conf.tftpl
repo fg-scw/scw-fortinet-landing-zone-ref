@@ -1,0 +1,122 @@
+config system global
+    set hostname "${hostname}"
+    set timezone "${system.timezone}"
+    set admin-sport 443
+    set anti-replay loose
+end
+config system console
+    set output standard
+end
+config system dns
+    set protocol cleartext
+    set primary ${system.dns[0]}
+%{ if length(system.dns) > 1 ~}
+    set secondary ${system.dns[1]}
+%{ endif ~}
+end
+config system ntp
+    set ntpsync enable
+    set type custom
+    config ntpserver
+%{ for i, s in system.ntp ~}
+        edit ${i + 1}
+            set server "${s}"
+        next
+%{ endfor ~}
+    end
+end
+config system vdom-exception
+    edit 1
+        set object system.interface
+    next
+    edit 2
+        set object router.static
+    next
+end
+config system interface
+    edit "${ifs.mgmt}"
+        set alias "mgmt"
+        set mode static
+        set ip ${mgmt_ip} ${mgmt_mask}
+        set allowaccess ping https ssh
+    next
+    edit "${ifs.hub}"
+        set alias "hub"
+        set mode static
+        set ip ${hub_vip} ${hub_mask}
+        set allowaccess ping
+    next
+    edit "${ifs.sync}"
+        set alias "sync"
+        set mode static
+        set ip ${sync_ip} ${sync_mask}
+        set allowaccess ping
+    next
+    edit "${ifs.egress}"
+        set alias "egress"
+        set mode static
+        set ip ${egress_vip} 255.255.255.255
+        set allowaccess ping
+    next
+end
+config system link-monitor
+%{ for k in ["a", "b"] ~}
+    edit "pgw-${k}"
+        set srcintf "${ifs.egress}"
+        set server "${monitors[k]}"
+        set gateway-ip ${pgw[k].ip}
+        set update-static-route enable
+    next
+%{ endfor ~}
+end
+config router static
+    edit 1
+        set gateway ${pgw.a.ip}
+        set device "${ifs.egress}"
+        set distance 10
+        set comment "Egress PGW a (${pgw.a.zone}), preferred by both nodes"
+    next
+    edit 2
+        set gateway ${pgw.b.ip}
+        set device "${ifs.egress}"
+        set distance 20
+        set comment "Egress PGW b (${pgw.b.zone}), when a stops answering"
+    next
+%{ for i, cidr in hub_routes ~}
+    edit ${10 + i}
+        set dst ${cidr}
+        set gateway ${hub_vrouter}
+        set device "${ifs.hub}"
+        set comment "${cidr == egress_cidr ? "Egress hosts through the hub, like any spoke" : "Hub VPC router, on-link"}"
+    next
+%{ endfor ~}
+end
+%{ for i, l in syslog ~}
+config log ${i == 0 ? "syslogd" : "syslogd${i + 1}"} setting
+    set status enable
+    set server "${l.host}"
+    set port ${l.port}
+    set mode ${l.transport == "tcp" ? "reliable" : "udp"}
+end
+%{ endfor ~}
+config system ha
+    set group-name "${ha.group_name}"
+    set mode a-p
+    set password "@@HA_PASSWORD@@"
+    set hbdev "${ifs.sync}" 50
+    set unicast-hb enable
+    set unicast-hb-peerip ${peer_sync_ip}
+    set session-pickup enable
+    set session-pickup-connectionless enable
+    set override disable
+    set priority ${priority}
+    set arps ${ha.arps}
+    set arps-interval ${ha.arps_interval}
+    set ha-mgmt-status enable
+    config ha-mgmt-interfaces
+        edit 1
+            set interface "${ifs.mgmt}"
+            set gateway ${mgmt_gateway}
+        next
+    end
+end

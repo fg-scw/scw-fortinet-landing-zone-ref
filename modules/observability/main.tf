@@ -1,4 +1,4 @@
-# Optional syslog relay: OPNsense -> VM in the egress Private Network ->
+# Optional syslog relay: FortiGate -> VM in the egress Private Network ->
 # Grafana Alloy -> Scaleway Cockpit (Loki). No HA: if the relay is down, the
 # firewalls keep their logs locally.
 
@@ -33,7 +33,7 @@ locals {
 # --- Cockpit: a logs data source and a token that can only write logs
 
 resource "scaleway_cockpit_source" "logs" {
-  name           = "${var.name}-opnsense"
+  name           = "${var.name}-fortigate"
   project_id     = var.project_id
   type           = "logs"
   retention_days = var.retention_days

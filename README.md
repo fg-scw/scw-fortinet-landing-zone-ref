@@ -1,10 +1,12 @@
-# Landing zone Scaleway avec firewall FortiGate
+# Landing zone Scaleway hub & spoke avec FortiGate
 
-Socle réseau d'une organisation Scaleway, écrit en Terraform et déployé avec Terragrunt. Un projet central, la DSI, héberge deux firewalls FortiGate en haute disponibilité FGCP actif-passif (un par zone), la sortie Internet, le VPN et Interlink. Chaque BU (unité métier) a son propre projet, créé et détruit à la demande, avec son propre state : ajouter une BU ne touche ni aux firewalls ni aux autres BU.
+Socle réseau d'une organisation Scaleway, en Terraform. Le hub est un projet qui porte deux firewalls FortiGate en haute disponibilité FGCP actif-passif (un par zone), la sortie Internet, le VPN et Interlink. Chaque spoke a son propre projet et son groupe IAM. Ajouter un spoke ne touche pas aux firewalls.
 
-Tout flux qui sort d'une BU, ou qui y entre depuis l'extérieur, passe par le firewall central. Seule exception : le contournement Interlink optionnel (`hybrid_bypass`). Ce qu'une BU expose elle-même (Load Balancer, IP publique) n'est pas couvert : voir « Exposition directe » dans les [limites](docs/OPERATIONS.md#limites-connues).
+Tout flux qui sort d'un spoke, ou qui y entre depuis l'extérieur, passe par le firewall. Il y a deux exceptions : le contournement Interlink (`hybrid_bypass`) et ce qu'un spoke expose lui-même (Load Balancer, IP publique). Voir les [limites](docs/OPERATIONS.md#limites-connues).
 
-<img alt="Vue d'ensemble : tout flux qui sort d'une BU traverse la paire FortiGate du hub ; les firewalls n'ont aucune IP publique." src="docs/lz-overview.svg">
+La branche `hub-spoke-single-project` met le hub et les spokes dans un seul projet.
+
+<img alt="Vue d'ensemble : tout flux qui sort d'un spoke traverse la paire FortiGate du hub ; chaque spoke a son propre projet." src="docs/lz-overview.svg">
 
 Les firewalls démarrent sur l'image d'usine de Fortinet et se configurent seuls au premier démarrage, avec les user data cloud-init de leur Instance. Terraform vérifie ensuite chaque nœud par le bastion et pousse la politique.
 
@@ -13,56 +15,31 @@ Les firewalls démarrent sur l'image d'usine de Fortinet et se configurent seuls
 ## Contenu
 
 ```text
-live/root.hcl             state S3 par unité, provider (variables TG_*)
-live/bus.yaml             registre des BU : index, bypass, NACL entrantes
-live/dsi/terragrunt.hcl   unité DSI : firewalls, accès admin, VPN, Interlink
-live/dsi/policy.yaml      politique firewall du client (modèle : policy.yaml.example)
-live/dsi/observability/   relais de journaux optionnel
-live/bus/<bu>/            une unité par BU (terragrunt.hcl identique pour toutes)
-live/bus/<bu>/endpoints/<nom>/   exposition publique : Load Balancers, Edge Services
-modules/dsi, bu, endpoint, observability   modules Terraform
-docs/                     documentation
+main.tf                    hub, spokes, expositions et relais de journaux
+variables.tf, outputs.tf   entrées et sorties
+terraform.tfvars.example   modèle de configuration
+policy.yaml.example        modèle de politique firewall
+backend.hcl.example        modèle de backend S3 pour le state
+modules/hub                firewalls, VPC du hub, VPN, Interlink, bascule
+modules/spoke              projet, VPC Pub et Private, NACL et IAM d'un spoke
+modules/endpoint           Load Balancers et Edge Services
+modules/observability      relais syslog vers Cockpit (optionnel)
 ```
 
 ## Prérequis
 
-### Outils
-
-| Outil | Version minimale | Pourquoi |
-|---|---|---|
-| Terraform | 1.10 | `required_version = ">= 1.10"` dans chaque module |
-| Terragrunt | version récente avec les commandes `run`, `hcl`, `find` | aucune contrainte n'est écrite dans `live/` |
-| Provider `scaleway/scaleway` | 2.89 (`~> 2.89`, modules `dsi` et `observability`) | installé à l'exécution ; security groups sur les cartes Private Network |
-| Provider `hashicorp/random` | 3.6 (`~> 3.6`), module `dsi` | idem |
-| CLI `scw` | récente | doit être sur la machine qui déploie : elle démarre les firewalls une fois leurs cartes réseau posées et libère les VIP à la destruction |
-| `ssh` | | contrôle des firewalls neufs et politique, par le bastion (Public Gateway) ; le poste doit figurer dans `admin_cidrs` |
-
-### Droits Scaleway
-
-- Une clé API d'organisation : elle crée projets, applications, politiques et clés IAM, et gère VPC, Instances, Block Storage, IPAM, Public Gateways, VPN, Load Balancers et Edge Services. Les connecteurs de peering du Hub sont créés dans le projet DSI depuis chaque BU, d'où la clé d'organisation. Une clé d'administrateur convient.
-- Un bucket Object Storage privé et versionné pour les states : `scw object bucket update <bucket> enable-versioning=true region=fr-par`. Le state DSI contient des secrets : réservez le bucket aux opérateurs.
-- Les zones `fr-par-1` et `fr-par-2` pour les firewalls (`fr-par-3` n'a ni Public Gateway ni Load Balancer).
-
-### Image FortiGate et licences
-
-Le qcow2 FortiOS KVM de Fortinet s'importe tel quel, sans modification (étape 1 du déploiement). Chaque nœud a sa propre licence FortiGate-VM (BYOL, fichier `.lic` jamais versionné).
-
-### Variables d'environnement
-
-Ne les versionnez jamais.
+- Terraform 1.10 ou plus récent, la CLI `scw` et `ssh` sur la machine qui déploie. `scw` démarre les firewalls une fois leurs cartes posées et efface leurs user data. `ssh` contrôle les nœuds par le bastion, depuis une adresse de `admin_cidrs`.
+- Une clé API d'organisation, d'administrateur par exemple : Terraform crée les projets et l'IAM, et les connecteurs de peering du hub se créent dans le projet du hub depuis chaque spoke.
+- Un bucket Object Storage privé et versionné pour le state. Il contient le mot de passe `admin`, les licences et les clés API de bascule.
+- Une licence FortiGate-VM BYOL par nœud (fichier `.lic`, jamais versionné).
+- Les zones `fr-par-1` et `fr-par-2` (`fr-par-3` n'a ni Public Gateway ni Load Balancer).
 
 ```bash
 export SCW_ACCESS_KEY=<clé> SCW_SECRET_KEY=<secret> SCW_DEFAULT_ORGANIZATION_ID=<id-organisation>
 export AWS_ACCESS_KEY_ID=$SCW_ACCESS_KEY AWS_SECRET_ACCESS_KEY=$SCW_SECRET_KEY   # accès au bucket du state
-export TG_STATE_BUCKET=<bucket-du-state>
-export TG_REGION=fr-par TG_ZONE=fr-par-1   # facultatif : ce sont les défauts
 ```
 
-`TG_REGION` est la région du bucket et des zones des firewalls.
-
 ## Déploiement
-
-Les commandes se lancent depuis le dossier de ce README.
 
 1. Importer le qcow2 FortiOS KVM d'usine (le `fortios.qcow2` du zip Fortinet, déposé dans un bucket de la région), un snapshot par zone :
 
@@ -71,65 +48,39 @@ Les commandes se lancent depuis le dossier de ce README.
    scw block snapshot import-from-object-storage zone=fr-par-2 bucket=<bucket> key=fortios.qcow2 name=fortios-<version>
    ```
 
-   Les deux identifiants, au format `<zone>/<uuid>`, sont les `snapshot_id` de `firewall.nodes`. Ne démarrez jamais une Instance sur ces snapshots à la main : un disque qui a déjà démarré ignore ses user data.
+   Ne démarrez jamais d'Instance sur ces snapshots à la main : un disque qui a déjà démarré ignore ses user data.
 
-2. Configurer :
-   - `live/dsi/terragrunt.hcl` : `admin_cidrs` (votre IP publique en `/32`), `admin_ssh_public_keys`, les deux `snapshot_id` et `license_file` de `firewall.nodes` ; `vpn` et `interlink` si besoin ;
-   - `live/bus.yaml` : vos BU ; remplacez les exemples `live/bus/genomic` et `live/bus/genomic/endpoints/web` par les vôtres ;
-   - `live/dsi/policy.yaml` (facultatif) : règles propres au client, à partir de `policy.yaml.example`.
+2. Copier `terraform.tfvars.example` en `terraform.tfvars` et `backend.hcl.example` en `backend.hcl`, puis les remplir : identifiants des snapshots (`<zone>/<uuid>`), licences, `admin_cidrs`, spokes. Pour ajouter des règles au firewall, copier `policy.yaml.example` en `policy.yaml`. Les options avancées du hub (plan d'adressage, numéros d'hôte, taille des Public Gateways) sont des arguments de `module "hub"` dans `main.tf`, décrits dans `modules/hub/variables.tf`.
 
-   Toutes les options : [docs/CONFIGURATION.md](docs/CONFIGURATION.md). Vérification de la syntaxe (les avertissements `has no outputs, but mock outputs provided` sont normaux avant le premier apply) :
+3. Déployer :
 
    ```bash
-   cd live && terragrunt hcl fmt --check && terragrunt hcl validate && terragrunt find
+   terraform init -backend-config=backend.hcl
+   terraform plan -out=tfplan
+   terraform apply tfplan
    ```
 
-3. Déployer la DSI :
+   L'apply attend que les deux nœuds soient prêts (environ 3 min 30), puis pousse la politique.
+
+4. Récupérer les accès (SSH par le bastion, WebUI par tunnel `ssh -L`) et le mot de passe `admin` :
 
    ```bash
-   terragrunt plan --working-dir live/dsi
-   terragrunt apply --working-dir live/dsi
+   terraform output -json access
+   terraform output -raw fw_admin_password
    ```
 
-4. Récupérer les accès d'administration (SSH par le bastion, WebUI par tunnel `ssh -L`) et le mot de passe `admin` :
+   Si une exposition utilise Edge Services, créez un CNAME de chaque FQDN vers son `edge_cname_target` (sortie `endpoints`), sans quoi le certificat n'est pas émis.
 
-   ```bash
-   terragrunt output -json access --working-dir live/dsi
-   terragrunt output -raw fw_admin_password --working-dir live/dsi
-   ```
+## Tests
 
-   L'apply attend que les deux nœuds soient prêts (environ 3 min 30), puis pousse la politique. Tant qu'un nœud démarre, le SSH répond `stdio forwarding failed`.
-
-5. Déployer les BU et les expositions (toutes les unités, dans l'ordre des dépendances) :
-
-   ```bash
-   cd live && terragrunt run --all -- apply
-   ```
-
-   Cette commande inclut `live/dsi/observability`, le relais de journaux (firewalls → Alloy → Cockpit) : supprimez ce dossier si vous ne le voulez pas ([modules/observability/README.md](modules/observability/README.md)). Pour une seule unité :
-
-   ```bash
-   terragrunt apply --working-dir live/bus/<bu>
-   terragrunt apply --working-dir live/bus/<bu>/endpoints/<nom>
-   ```
-
-   Si une exposition utilise Edge Services, créez un CNAME de chaque FQDN vers la sortie `edge_cname_target` de l'unité, sans quoi le certificat n'est pas émis.
-
-6. Vérifier : `terragrunt output --working-dir live/bus/<bu>` (adresses et projet de la BU) et `scw vpc vpc-connector list region=fr-par` (tous les connecteurs doivent être `peered`).
-
-### Tests hors ligne
-
-Ils n'appellent pas Scaleway. Un module à la fois :
+Ils tournent hors ligne, sans appel à Scaleway :
 
 ```bash
-terraform -chdir=modules/dsi init -backend=false && terraform -chdir=modules/dsi test
+terraform init -backend=false && terraform test
+for m in hub spoke endpoint observability; do terraform -chdir=modules/$m init -backend=false && terraform -chdir=modules/$m test; done
 ```
-
-Même commande pour `bu`, `endpoint` et `observability`.
 
 ## Documentation
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) : flux, filtrage, administration, premier démarrage, bascule.
-- [docs/OPERATIONS.md](docs/OPERATIONS.md) : ajouter une BU, changer la politique, reconstruire un firewall, détruire, dépannage, limites.
-- [docs/CONFIGURATION.md](docs/CONFIGURATION.md) : toutes les options.
-- [modules/observability/README.md](modules/observability/README.md) : relais de journaux et alertes.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) : flux, adressage, filtrage, administration, premier démarrage, bascule.
+- [docs/OPERATIONS.md](docs/OPERATIONS.md) : spokes, politique, reconstruction d'un firewall, journaux, destruction, dépannage, limites.

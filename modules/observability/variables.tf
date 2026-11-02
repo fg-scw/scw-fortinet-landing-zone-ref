@@ -1,11 +1,11 @@
 variable "name" {
   description = "Resource prefix."
   type        = string
-  default     = "dsi-obs"
+  default     = "hub-obs"
 }
 
 variable "project_id" {
-  description = "DSI project (Cockpit source, token and relay live there)."
+  description = "Hub project (Cockpit source, token and relay live there)."
   type        = string
 }
 
@@ -18,29 +18,29 @@ variable "zone" {
 variable "tags" {
   description = "Tags set on every taggable resource."
   type        = list(string)
-  default     = ["landing-zone", "dsi", "observability"]
+  default     = ["landing-zone", "hub", "observability"]
   nullable    = false
 }
 
 variable "private_network_id" {
-  description = "Egress Private Network of the DSI (default route through its Public Gateways: Internet for apt and Cockpit)."
+  description = "Egress Private Network of the hub (default route through its Public Gateways: Internet for apt and Cockpit)."
   type        = string
 }
 
 variable "egress_cidr" {
-  description = "CIDR of the Egress Private Network (must equal the DSI var.cidrs.egress)."
+  description = "CIDR of the Egress Private Network (must equal the hub var.cidrs.egress)."
   type        = string
   default     = "10.0.4.0/24"
 }
 
 variable "hub_cidr" {
-  description = "CIDR of the Hub Private Network (must equal the DSI var.cidrs.hub). Allowed to send syslog."
+  description = "CIDR of the Hub Private Network (must equal the hub var.cidrs.hub). Allowed to send syslog."
   type        = string
   default     = "172.16.0.0/24"
 }
 
 variable "host" {
-  description = "Host number of the relay in the egress network. Must differ from the Public Gateways (default .2/.3), the data VIP (.10) and the firewalls (.11/.12) of the DSI, or from the customer's own values."
+  description = "Host number of the relay in the egress network. Must differ from the Public Gateways (default .2/.3), the data VIP (.10) and the firewalls (.11/.12) of the hub, or from the customer's own values."
   type        = number
   default     = 5
 
@@ -52,13 +52,13 @@ variable "host" {
 }
 
 variable "reserved_hosts" {
-  description = "Host numbers already used in the egress network (DSI output observability_target.reserved_hosts)."
+  description = "Host numbers already used in the egress network (hub output observability_target.reserved_hosts)."
   type        = list(number)
   default     = [2, 3, 9, 10, 11, 12]
 }
 
 variable "pgw_hosts" {
-  description = "Host numbers of the egress Public Gateways (DSI egress.pgw_hosts): the SSH bastion comes from these IPs."
+  description = "Host numbers of the egress Public Gateways (hub egress.pgw_hosts): the SSH bastion comes from these IPs."
   type        = list(number)
   default     = [2, 3]
 }

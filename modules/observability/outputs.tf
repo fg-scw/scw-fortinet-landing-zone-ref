@@ -1,10 +1,10 @@
 output "syslog_target" {
-  description = "To copy into firewall.syslog of the DSI, then rebuild the nodes one at a time."
+  description = "To copy into firewall.syslog of the hub, then rebuild the nodes one at a time."
   value       = { host = local.ip, port = 514, transport = "udp" }
 }
 
 output "grafana_url" {
-  description = "Grafana of the DSI project's Cockpit (Explore, select the logs source)."
+  description = "Grafana of the hub project's Cockpit (Explore, select the logs source)."
   value       = data.scaleway_cockpit_grafana.this.grafana_url
 }
 

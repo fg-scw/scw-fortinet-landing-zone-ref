@@ -1,41 +1,30 @@
 # Exploitation
 
-Après chaque modification : `terragrunt plan`, relecture, puis `terragrunt apply`.
+Après chaque modification : `terraform plan`, relecture, puis `terraform apply`. Les ressources Scaleway changent à l'apply, et la politique du firewall est poussée à chaud. Un réglage de plateforme du firewall (interfaces, HA, passerelles, syslog, licence, clés `admin`) n'atteint un nœud qu'à sa création : il faut le reconstruire.
 
-## Ajouter une BU
+## Ajouter un spoke
 
-Ajoutez une entrée dans `live/bus.yaml` avec un `index` unique (0-1023), puis créez son unité et appliquez. Le firewall n'est jamais modifié. Ne changez jamais l'`index` d'une BU existante.
+Ajoutez une entrée à `spokes` dans `terraform.tfvars`, avec un `index` unique entre 0 et 1023, puis appliquez. Le firewall n'est pas modifié. Ne changez jamais l'`index` d'un spoke existant : il fixe ses adresses.
 
-```bash
-mkdir live/bus/<bu> && cp live/bus/genomic/terragrunt.hcl live/bus/<bu>/
-terragrunt apply --working-dir live/bus/<bu>
-```
+Dans la même entrée, `nacl_inbound` ouvre un flux entrant, `hybrid_bypass = true` relie le spoke à Interlink (il faut alors `interlink`) et `edge_services_plan` active Edge Services. Les membres du groupe IAM du spoke se gèrent hors Terraform.
 
-Dans la même entrée de `bus.yaml` : `nacl_inbound` ouvre un flux entrant, `hybrid_bypass: true` relie la BU à Interlink (demande `interlink` dans la DSI), `edge_services_plan` active Edge Services. Après modification, `apply` de l'unité BU. Les membres du groupe IAM de la BU sont gérés hors Terraform.
+## Retirer un spoke
 
-## Retirer une BU
-
-La BU vide d'abord son projet (instances, LB, volumes, bases, buckets). Puis :
-
-```bash
-terragrunt run --all --working-dir live/bus/<bu> -- destroy
-```
-
-Supprimez ensuite le dossier et l'entrée de `bus.yaml`. Gardez l'`index` réservé tant que le projet n'est pas détruit.
+L'équipe du spoke vide d'abord son projet (instances, LB, volumes, bases, buckets). Retirez ensuite ses expositions de `endpoints` et son entrée de `spokes`, puis appliquez. Ne réutilisez pas son `index` tant que le projet existe encore.
 
 ## Changer la politique du firewall
 
-Modifiez `live/dsi/policy.yaml` (format : [CONFIGURATION.md](CONFIGURATION.md)), puis `terragrunt apply --working-dir live/dsi`. Les règles sont poussées en direct sur le primaire FGCP, qui synchronise le secondaire, sans redémarrage. Un réglage fait dans le WebUI est écrasé au prochain push.
+Modifiez `policy.yaml` (format et exemples dans `policy.yaml.example`), puis appliquez. Les règles sont poussées sur le primaire FGCP, qui synchronise le secondaire, sans redémarrage. Un réglage fait dans le WebUI est écrasé au push suivant.
 
 ## Reconstruire un firewall
 
-FortiOS ne lit ses user data qu'une fois. Un changement de plateforme (interfaces, HA, passerelles, syslog, licence, clés `admin`) ou de version passe donc par une reconstruction ; le plan l'annonce par une mise à jour de `terraform_data.fw_config`, qui garde la plateforme en clair et les user data sous forme de hash. Un nœud par `apply`, le secondaire d'abord :
+FortiOS ne lit ses user data qu'une fois, au premier démarrage. Un changement de plateforme ou de version passe donc par une reconstruction. Le plan l'annonce par une mise à jour de `module.hub.terraform_data.fw_config`, qui montre la plateforme en clair et les user data sous forme de hash. Reconstruisez un nœud par apply, le secondaire d'abord :
 
 ```bash
-ssh -J <bastion> admin@<ip-mgmt> 'get system ha status'                                  # qui est primaire ?
-terragrunt apply --working-dir live/dsi -replace='terraform_data.fw_generation["fw2"]'   # le secondaire
+ssh -J <bastion> admin@<ip-mgmt> 'get system ha status'                     # qui est primaire ?
+terraform apply -replace='module.hub.terraform_data.fw_generation["fw2"]'   # le secondaire
 # sur le primaire, en SSH : execute ha failover set 1   (confirmer par y)
-terragrunt apply --working-dir live/dsi -replace='terraform_data.fw_generation["fw1"]'   # l'ancien primaire
+terraform apply -replace='module.hub.terraform_data.fw_generation["fw1"]'   # l'ancien primaire
 ```
 
 <img alt="Mise à jour en production : on reconstruit le secondaire, on bascule vers lui, puis on reconstruit l'ancien primaire, qui revient en secondaire." src="lz-rebuild.svg">
@@ -44,64 +33,61 @@ Un nœud reconstruit revient en secondaire et le cluster ne rebascule pas. Il pe
 
 ## Faire tourner les clés de bascule
 
-Deux clés API : celle du firewall (`FunctionsPrivateAccess`) et celle de la fonction (`IPAMFullAccess`).
-
 ```bash
-terragrunt apply --working-dir live/dsi -replace='scaleway_iam_api_key.fw_invoke'    # clé du firewall
-terragrunt apply --working-dir live/dsi -replace='scaleway_iam_api_key.ipam_follow'  # clé de la fonction
+terraform apply -replace='module.hub.scaleway_iam_api_key.fw_invoke'    # clé du firewall
+terraform apply -replace='module.hub.scaleway_iam_api_key.ipam_follow'  # clé de la fonction
 ```
 
-La première est repoussée aux firewalls avec la politique, la seconde est redéployée dans la fonction : aucune reconstruction. Si une bascule échoue entre-temps, déplacez les VIP à la main avec la ligne du primaire :
+La clé du firewall est repoussée avec la politique, celle de la fonction est redéployée dans la fonction. Aucun nœud n'est reconstruit. Si une bascule échoue entre-temps, déplacez les VIP à la main avec la ligne du primaire de `terraform output -json failover_commands`.
 
-```bash
-terragrunt output -json failover_commands --working-dir live/dsi
-```
+## Journaux
+
+Avec `observability = true`, une petite VM du réseau Egress reçoit le syslog des firewalls (RFC 5424, port 514 en UDP et TCP) et Grafana Alloy le pousse dans Cockpit, dans le projet du hub. Le relais n'a ni HA ni TLS : s'il tombe, les firewalls gardent leurs journaux en local, et le trafic ne quitte pas le Private Network. Si le client a déjà un SIEM, laissez `observability = false` et mettez son collecteur dans `firewall.syslog`.
+
+Pour brancher les firewalls sur le relais, recopiez `syslog_target` (sortie `observability`) dans `firewall.syslog`, puis reconstruisez les nœuds un à un. La sortie donne aussi `grafana_url` : dans Explore, choisissez la source de logs du projet du hub et filtrez sur `{job="fortigate"}`.
 
 ## Détruire
 
-Les ressources des BU (instances, LB, volumes, bases, buckets) doivent être supprimées avant.
+Supprimez d'abord les ressources créées dans les spokes (instances, LB, volumes, bases, buckets) et notez leurs `project_id` (`terraform output spokes`). Puis :
 
 ```bash
-cd live && terragrunt run --all -- destroy
+terraform destroy
 ```
 
-Si l'erreur `resource is still in use` apparaît, supprimez les security groups « Default » créés par Scaleway dans le projet de la BU, puis relancez :
+Si l'erreur `resource is still in use` apparaît, supprimez les security groups « Default » que Scaleway a créés dans le projet du spoke, puis relancez :
 
 ```bash
-scw instance security-group list zone=fr-par-1 project-id=<id-projet-BU>
+scw instance security-group list zone=fr-par-1 project-id=<id-projet-spoke>
 scw instance security-group delete <id> zone=fr-par-1
 ```
 
-Faites de même dans `fr-par-2` si des VM y ont tourné. Notez les `project_id` (`terragrunt output project_id --working-dir live/bus/<bu>`) avant la destruction.
+Faites de même dans `fr-par-2` si des VM y ont tourné.
 
 ## Dépannage
 
 | Symptôme | Cause | Action |
 |---|---|---|
 | `stdio forwarding failed` en SSH vers un firewall | il démarre encore | attendre quelques minutes |
-| `Connection timed out during banner exchange` vers une VM | port fermé par la NACL de la BU | ajouter une règle `nacl_inbound` dans `bus.yaml`, puis `apply` de la BU |
-| Plus de trafic via le hub ou vers Internet après une bascule | VIP restées sur l'ancien primaire (fonction de bascule en échec) | `failover_commands`, lancer la ligne du primaire FGCP |
-| `fortigate.sh ready` ou le push de politique échoue en SSH | le poste n'est pas dans `admin_cidrs`, ou `ssh`, `scw` manquent | corriger, puis relancer l'apply |
-| `admin key never accepted: user data not applied` | FortiOS n'a pas lu ses user data : le disque avait déjà démarré, ou l'Instance a une IP publique (pas de CD-ROM NoCloud) | partir du snapshot d'usine, sans IP publique, et reconstruire ; en console série, `diagnose debug cloudinit show` montre ce que FortiOS a lu |
-| Le plan échoue sur `yamldecode` ou refuse la politique | erreur de syntaxe, alias inconnu, description en double ou contenant `<`, `>`, `&` | corriger `policy.yaml` |
-| Le plan refuse les CIDR | chevauchement entre `cidrs`, `bu_supernet` et les CIDR on-prem | corriger les valeurs |
-| Le certificat Edge Services n'est pas émis | le CNAME du FQDN manque | créer le CNAME vers `edge_cname_target` |
-| `terragrunt` ne voit pas une modification de module | cache local | ajouter `--source-update` |
-| `resource is still in use` à la destruction d'une BU | security group « Default » dans le projet | voir « Détruire » |
+| `Connection timed out during banner exchange` vers une VM | port fermé par la NACL du spoke | ajouter une règle `nacl_inbound` au spoke, puis appliquer |
+| plus de trafic via le hub ou vers Internet après une bascule | VIP restées sur l'ancien primaire, la fonction de bascule a échoué | lancer la ligne du primaire de `failover_commands` |
+| `fortigate.sh ready` ou le push de politique échoue en SSH | le poste n'est pas dans `admin_cidrs`, ou `ssh` ou `scw` manque | corriger, puis relancer l'apply |
+| `admin key never accepted: user data not applied` | FortiOS n'a pas lu ses user data : le disque avait déjà démarré, ou l'Instance a une IP publique (pas de CD-ROM NoCloud) | repartir du snapshot d'usine, sans IP publique, et reconstruire ; en console série, `diagnose debug cloudinit show` montre ce que FortiOS a lu |
+| le plan échoue sur `yamldecode` ou refuse la politique | erreur de syntaxe, alias inconnu, description en double ou contenant `<`, `>` ou `&` | corriger `policy.yaml` |
+| le plan refuse les CIDR | chevauchement entre `cidrs`, `spoke_supernet` et les CIDR on-prem | corriger les valeurs |
+| le certificat Edge Services n'est pas émis | le CNAME du FQDN manque | créer le CNAME vers `edge_cname_target` |
+| `resource is still in use` à la destruction d'un spoke | security group « Default » dans le projet | voir « Détruire » |
 
 ## Limites connues
 
 - Redis, MongoDB, Kafka, OpenSearch et ClickHouse ne suivent pas le routage VPC : ils ne sont joignables que depuis leur Private Network.
-- Exposition directe : les chemins Internet qu'une BU crée elle-même ne passent pas par le firewall : IP publique d'instance (`InstancesFullAccess`), Load Balancer, nœuds Kapsule avec IP publique. Le contrôle passe par IAM et par un inventaire des projets BU (`scw instance ip list project-id=<projet>`, `scw lb list project-id=<projet>`). Retirer `InstancesFullAccess`, `LoadBalancersFullAccess` ou `KubernetesFullAccess` de `iam_permission_sets` ferme ces voies.
-- Le state DSI contient le mot de passe `admin`, le mot de passe HA, les user data des firewalls (licence comprise) et les clés API de bascule : protégez le bucket.
-- Le firewall ne détient qu'une clé `FunctionsPrivateAccess`, qui permet seulement d'appeler la fonction privée ; la clé `IPAMFullAccess` reste dans la fonction, limitée au projet DSI.
-- Par défaut, les règles sont en *sloppy state* : le firewall ne vérifie plus les numéros de séquence TCP, et les sessions survivent à une bascule de firewall. Elles ne survivent jamais à la perte d'une Public Gateway, car l'IP publique change.
-- `policy.nat_outbound` n'est pas pris en charge : le trafic Internet des BU est traduit vers la VIP egress par la règle `[EGRESS]`.
-- Les licences sont en BYOL, une par nœud.
-- Dans les NACL, les retours sont ouverts en TCP et UDP sur 32768-65535 depuis toute source : un service qui écoute sur ces ports est joignable de l'extérieur de la BU (le firewall filtre ce qui vient du Hub, pas le bypass Interlink), sauf sur une instance qui porte le security group de référence de la BU. Pas de NACL ni de routes IPv6.
-- Le filtrage a trois niveaux : le firewall entre VPC, les NACL de la DSI aux frontières des VPC BU, les security groups au niveau de chaque carte Private Network (`security_group_ids` de l'unité BU, à poser par la BU sur ses instances). La BU peut les modifier ou les détacher : le contrôle passe par Audit Trail et un inventaire des cartes sans groupe. Côté DSI, la carte de management des firewalls n'accepte que SSH et HTTPS depuis les bastions des PGW ; les cartes hub, egress et heartbeat n'ont pas de groupe (le firewall filtre). Un security group sur une carte Private Network y désactive l'IPv6.
+- Les chemins Internet qu'un spoke crée lui-même ne passent pas par le firewall : IP publique d'instance, Load Balancer, nœuds Kapsule avec IP publique. Le contrôle passe par l'IAM et par un inventaire des projets spoke (`scw instance ip list project-id=<projet>`, `scw lb list project-id=<projet>`). Retirer `InstancesFullAccess`, `LoadBalancersFullAccess` ou `KubernetesFullAccess` de `iam_permission_sets` (argument de `module "spoke"` dans `main.tf`) ferme ces voies.
+- Le state contient le mot de passe `admin`, le mot de passe HA, les user data des firewalls (licences comprises) et les clés API de bascule : protégez le bucket.
+- Par défaut, les règles sont en *sloppy state* : le firewall ne vérifie pas les numéros de séquence TCP, ce qui permet aux sessions de survivre à une bascule. Elles ne survivent jamais à la perte d'une Public Gateway, car l'IP publique change.
+- `policy.nat_outbound` n'est pas pris en charge : le trafic Internet des spokes est traduit vers la VIP egress par la règle `[EGRESS]`.
+- Dans les NACL, les retours sont ouverts en TCP et UDP sur 32768-65535 depuis toute source. Un service qui écoute sur ces ports est joignable de l'extérieur du spoke, sauf sur une instance qui porte le security group de référence du spoke. Le firewall filtre ce qui vient du hub, pas le bypass Interlink. Pas de NACL ni de routes IPv6.
+- Le filtrage a trois niveaux : le firewall entre VPC, les NACL aux frontières des VPC spoke, et les security groups sur les cartes Private Network (sortie `security_group_ids`, à poser par l'équipe du spoke sur ses instances). L'équipe du spoke peut modifier ou détacher ces groupes : le contrôle passe par Audit Trail et un inventaire des cartes sans groupe. Un security group sur une carte Private Network y désactive l'IPv6.
 - Le trafic d'Edge Services vers les Load Balancers est en HTTP, non chiffré.
 - Scaleway n'expose aucun timer BGP, BFD ou DPD : la vitesse de bascule entre les deux tunnels VPN se règle sur la passerelle on-prem.
-- Quand une BU est ajoutée, les VM déjà démarrées reçoivent ses routes par DHCP en une heure au plus.
-- Le quota de peering est de 512 connecteurs par organisation : 127 BU sans bypass, 85 avec.
-- Les journaux restent locaux sauf si vous renseignez `firewall.syslog` ou déployez le relais d'observabilité.
+- Quand un spoke est ajouté, les VM déjà démarrées reçoivent ses routes par DHCP en une heure au plus.
+- Une organisation a 512 connecteurs de peering : 127 spokes sans bypass, 85 avec.
+- Le relais de journaux filtre le journal de paquets sur `program="filterlog"`, un nom hérité d'OPNsense : il n'a pas été vérifié avec FortiGate.

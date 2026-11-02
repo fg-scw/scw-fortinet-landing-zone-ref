@@ -1,0 +1,61 @@
+# Copy to terraform.tfvars (never committed). Options: variables.tf, and
+# modules/*/variables.tf for what main.tf passes through.
+
+# Public IPs allowed on the bastion, the machine running Terraform included:
+# it checks new firewalls and pushes the policy through the bastion.
+admin_cidrs           = ["203.0.113.10/32"]
+admin_ssh_public_keys = ["ssh-ed25519 AAAA_REPLACE_ME admin@example"]
+
+# Factory FortiOS KVM snapshot of each zone (README, step 1) and the licence
+# file of each node (.lic, never committed). The node zones also set the zones
+# of the Public Gateways and VPN gateways.
+firewall = {
+  instance_type = "POP2-2C-8G"
+  nodes = {
+    fw1 = { zone = "fr-par-1", snapshot_id = "fr-par-1/<uuid>", license_file = "licenses/fw1.lic" }
+    fw2 = { zone = "fr-par-2", snapshot_id = "fr-par-2/<uuid>", license_file = "licenses/fw2.lic" }
+  }
+}
+
+# Spokes. index (0-1023) is permanent and sets the spoke CIDRs: Pub /22 from
+# 10.64.0.0/12, Private /21 from 10.96.0.0/11. Never renumber a live spoke.
+spokes = {
+  genomic = {
+    index              = 1
+    hybrid_bypass      = false # true: Private VPC peered with Interlink, no firewall
+    edge_services_plan = "starter"
+    nacl_inbound = [
+      { to = "private", source = "10.0.4.0/24", port = 8080, description = "Hub load balancers to genomic backends" },
+    ]
+  }
+}
+
+# Public endpoints: Load Balancers in the owner's network, Edge Services optional.
+endpoints = {
+  web = {
+    owner = "genomic"
+    config = {
+      zones   = ["fr-par-1", "fr-par-2"]
+      backend = { server_ips = ["10.96.8.10", "10.96.8.11"], port = 8080, health_check_uri = "/healthz" }
+      edge    = { fqdns = ["genomic.example.com"] }
+    }
+  }
+}
+
+# Syslog relay to Cockpit. Off when the customer has its own SIEM.
+observability = true
+
+# edge_services_plan = "starter" # hub endpoints using Edge Services
+
+# vpn = {
+#   customer_gateway_ip = "198.51.100.1"
+#   customer_asn        = 65010
+#   onprem_cidrs        = ["192.168.0.0/16"]
+# }
+
+# interlink = {
+#   pop_id         = "fr-par/<pop-uuid>"
+#   bandwidth_mbps = 1000
+#   partner_id     = "fr-par/<partner-uuid>"
+#   onprem_cidrs   = ["10.10.0.0/16"]
+# }
