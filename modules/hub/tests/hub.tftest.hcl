@@ -37,18 +37,19 @@ mock_provider "scaleway" {
   mock_resource "scaleway_s2s_vpn_gateway" {
     defaults = { id = "fr-par-1/44444444-4444-4444-4444-444444444444" }
   }
-  mock_resource "scaleway_function_namespace" {
+  mock_resource "scaleway_container_namespace" {
     defaults = { id = "fr-par/44444444-4444-4444-4444-444444444444" }
   }
-  mock_resource "scaleway_function" {
+  mock_resource "scaleway_container" {
     override_during = plan
-    defaults        = { id = "fr-par/44444444-4444-4444-4444-444444444444", domain_name = "failover.functions.test" }
+    defaults        = { id = "fr-par/44444444-4444-4444-4444-444444444444" }
   }
   mock_resource "scaleway_iam_api_key" {
     override_during = plan
     defaults        = { secret_key = "test-secret-key" }
   }
 }
+
 
 mock_provider "random" {
   override_during = plan
@@ -191,13 +192,14 @@ run "failover_automation" {
   assert {
     condition = alltrue([
       can(regex("(?s)edit \"lz-became-primary\".*?set event-type event-log\\s+set logid 37892.*?set name \"ha_role\"\\s+set value \"primary\"", terraform_data.fw_policy.input)),
-      can(regex("(?s)set uri \"failover.functions.test/\".*?set http-body \"\\{\\\\\"node\\\\\":\\\\\"%%log.devname%%\\\\\"\\}\".*?set value \"@@FAILOVER_KEY@@\"", terraform_data.fw_policy.input)),
+      can(regex("(?s)set uri \"@@FAILOVER_HOST@@/\".*?set http-body \"\\{\\\\\"node\\\\\":\\\\\"%%log.devname%%\\\\\"\\}\".*?set value \"@@FAILOVER_KEY@@\"", terraform_data.fw_policy.input)),
       length(regexall("set action \"lz-ipam-follow\"", terraform_data.fw_policy.input)) == 4,
-      scaleway_function.ipam_follow.privacy == "private",
+      scaleway_container.ipam_follow.privacy == "private",
+      scaleway_container.ipam_follow.enable_default_public_endpoint == false,
       one(scaleway_iam_policy.ipam_follow.rule).permission_set_names == toset(["IPAMFullAccess"]),
-      one(scaleway_iam_policy.fw_invoke.rule).permission_set_names == toset(["FunctionsPrivateAccess"]),
+      one(scaleway_iam_policy.fw_invoke.rule).permission_set_names == toset(["ContainersPrivateAccess"]),
     ])
-    error_message = "Becoming primary calls the private failover function (3 tries + hourly reconcile) with the node hostname; key injected at push time only; least-privilege IAM."
+    error_message = "Becoming primary calls the private failover container (3 tries + hourly reconcile) with the node hostname; key injected at push time only; least-privilege IAM."
   }
 }
 

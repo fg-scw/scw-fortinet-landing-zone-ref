@@ -44,9 +44,9 @@ Un nœud est prêt en 3 min 30 environ, et les deux démarrent en parallèle. `f
 
 ## Bascule
 
-Le routeur du VPC suit la réservation IPAM de la VIP du Hub et ignore les ARP gratuits. Quand un nœud devient primaire, une automation FortiOS (événement 37892 `ha_role=primary`, répétée à 0, 10 et 30 s, plus un rattrapage toutes les heures) appelle une Serverless Function privée (`modules/hub/failover.tf`, `modules/hub/ipam_follow/handler.py`). La fonction déplace les deux VIP de données vers ce nœud dans l'IPAM. Le firewall ne détient qu'une clé IAM limitée à `FunctionsPrivateAccess`, et la clé de la fonction est limitée à `IPAMFullAccess` sur le projet.
+Le routeur du VPC suit la réservation IPAM de la VIP du Hub et ignore les ARP gratuits. Quand un nœud devient primaire, une automation FortiOS (événement 37892 `ha_role=primary`, répétée à 0, 10 et 30 s, plus un rattrapage toutes les heures) appelle un Serverless Container privé (`modules/hub/failover.tf`, `modules/hub/ipam_follow/handler.py`). Le conteneur déplace les deux VIP de données vers ce nœud dans l'IPAM. Le firewall ne détient qu'une clé IAM limitée à `ContainersPrivateAccess`, et la clé du conteneur est limitée à `IPAMFullAccess` sur le projet.
 
-<img alt="Bascule : le routeur VPC suit l'IPAM, pas le GARP ; le nouveau primaire FortiGate appelle une Serverless Function qui déplace la VIP dans l'IPAM." src="lz-ha.svg">
+<img alt="Bascule : le routeur VPC suit l'IPAM, pas le GARP ; le nouveau primaire FortiGate appelle un Serverless Container privé qui déplace la VIP dans l'IPAM." src="lz-ha.svg">
 
 Mesures du 2 novembre 2026, avec deux VM de spoke qui envoient 10 pings par seconde vers Internet à travers le firewall :
 
@@ -56,4 +56,6 @@ Mesures du 2 novembre 2026, avec deux VM de spoke qui envoient 10 pings par seco
 | bascule forcée (`execute ha failover set 1`) | 0,2 s | conservée |
 | retour de l'ancien primaire | aucune, pas de rebascule | conservée |
 
-La fonction est écrite en Python, sans dépendance, et garde une instance chaude. L'appel du firewall sort par la Public Gateway et joint son point d'accès public en HTTPS signé. L'attacher à un Private Network n'y changerait rien : Scaleway n'y route que le trafic sortant de la fonction, pas l'appel entrant ([limites](https://www.scaleway.com/en/docs/serverless-functions/reference-content/functions-private-networks/)). La bascule automatique dépend donc de la sortie Internet du hub, comme le trafic Internet des spokes. Deux PGW dans deux zones, le rattrapage horaire et la sortie `failover_commands` couvrent ce risque. Quand Scaleway acceptera l'appel privé, il suffira d'attacher la fonction au Private Network de management et de changer l'URL appelée dans `fortigate-policy.conf.tftpl`.
+Le 3 novembre 2026, après le passage au conteneur, deux bascules forcées par `diagnose sys ha reset-uptime`, de fw1 vers fw2 puis retour, ont coûté 0,2 s puis 1 s de perte (5 pings par seconde), et les deux VIP ont suivi le nouveau primaire dans l'IPAM.
+
+Le conteneur tourne sur l'image Python officielle, avec le handler sans dépendance passé en commande : il n'y a pas de registre à alimenter. Il garde une instance chaude et n'a pas de point d'accès public. Son point d'accès privé est dans le Private Network du Hub, que chaque nœud joint directement par son port hub : l'appel ne passe ni par Internet ni par les Public Gateways. Le firewall l'appelle par son adresse IP, que Terraform lit dans l'IPAM et injecte au push de la politique, en HTTPS sans vérification du nom. FortiOS refuse en effet de résoudre les noms en `.internal`, et le certificat du point d'accès privé ne couvre que ce nom. Le Private Network du Hub ne porte que les deux firewalls et le conteneur, et Scaleway rejette les trames dont l'adresse MAC source n'est pas celle de la VM. Le rattrapage horaire et la sortie `failover_commands` couvrent un appel perdu.

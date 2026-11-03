@@ -157,7 +157,7 @@ policy() {
     { echo 'config firewall policy'; for i in $stale; do echo "delete $i"; done; echo end; } | cli "$primary" >/dev/null
   fi
   # The first election precedes the automation: align the data VIPs now,
-  # and again once a function redeployed with new NIC MACs is live.
+  # and again once a container redeployed with new NIC MACs is live.
   cli "$primary" <<<'diagnose automation test lz-ipam-reconcile' >/dev/null
   sleep 30
   cli "$primary" <<<'diagnose automation test lz-ipam-reconcile' >/dev/null
