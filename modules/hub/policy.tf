@@ -77,7 +77,7 @@ locals {
     services = local.fgt_services
     rules    = local.policy_rules
 
-    failover_host = scaleway_function.ipam_follow.domain_name
+    failover_host = "@@FAILOVER_HOST@@"
   })
 }
 
@@ -85,13 +85,13 @@ locals {
 # ready. A setting made in the WebUI is overwritten by the next push.
 resource "terraform_data" "fw_policy" {
   input            = local.fw_policy
-  triggers_replace = [local.fw_policy, scaleway_iam_api_key.fw_invoke.id, [for r in terraform_data.fw_ready : r.id]]
+  triggers_replace = [local.fw_policy, scaleway_iam_api_key.fw_invoke.id, data.scaleway_ipam_ip.ipam_follow.address, [for r in terraform_data.fw_ready : r.id]]
 
   provisioner "local-exec" {
     command = "${path.module}/fortigate.sh policy"
     environment = {
       FGT_HOSTS      = join(" ", [for k in keys(local.fw) : "${local.fw[k].ip.mgmt}=${local.bastion[k]}"])
-      FGT_CONFIG     = base64encode(replace(self.input, "@@FAILOVER_KEY@@", scaleway_iam_api_key.fw_invoke.secret_key))
+      FGT_CONFIG     = base64encode(replace(replace(self.input, "@@FAILOVER_KEY@@", scaleway_iam_api_key.fw_invoke.secret_key), "@@FAILOVER_HOST@@", data.scaleway_ipam_ip.ipam_follow.address))
       FGT_POLICY_IDS = join(" ", [for r in local.policy_rules : r.id])
     }
   }

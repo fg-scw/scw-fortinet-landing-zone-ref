@@ -4,8 +4,9 @@ The VPC router sends the hub ingress traffic to the MAC of the IPAM
 reservation of the hub VIP, never to a gratuitous ARP: the VIPs must follow
 the FGCP primary. The automation stitch of the node that just became primary
 POSTs {"node": "<hostname>"}; every call is idempotent, so repeated or late
-calls are harmless. The function is private: the platform checks the
-function token (X-Auth-Token) before this code runs.
+calls are harmless. It runs in a private Serverless Container reached on its
+private endpoint in the hub Private Network: the platform checks the token
+(X-Auth-Token) before this code runs.
 
 Environment: REGION, NODES (JSON {hostname: [{ip_id, mac, name}, ...]}, hub
 VIP first), secret SCW_SECRET_KEY (IAM application limited to IPAM).
@@ -68,3 +69,24 @@ def handle(event, context):
         return {"statusCode": 502, "body": json.dumps({"done": result, "error": str(e)})}
     print(json.dumps({"node": node, "done": result}))
     return {"statusCode": 200, "body": json.dumps(result)}
+
+
+def serve():
+    """HTTP server of the container: POST body -> handle()."""
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            body = self.rfile.read(int(self.headers.get("Content-Length") or 0)).decode()
+            r = handle({"body": body}, None)
+            out = r["body"].encode()
+            self.send_response(r["statusCode"])
+            self.send_header("Content-Length", str(len(out)))
+            self.end_headers()
+            self.wfile.write(out)
+
+    ThreadingHTTPServer(("", int(os.environ.get("PORT", "8080"))), Handler).serve_forever()
+
+
+if __name__ == "__main__":
+    serve()

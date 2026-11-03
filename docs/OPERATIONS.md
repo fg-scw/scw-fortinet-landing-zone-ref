@@ -35,10 +35,10 @@ Un nœud reconstruit revient en secondaire et le cluster ne rebascule pas. Il pe
 
 ```bash
 terraform apply -replace='module.hub.scaleway_iam_api_key.fw_invoke'    # clé du firewall
-terraform apply -replace='module.hub.scaleway_iam_api_key.ipam_follow'  # clé de la fonction
+terraform apply -replace='module.hub.scaleway_iam_api_key.ipam_follow'  # clé du conteneur
 ```
 
-La clé du firewall est repoussée avec la politique, celle de la fonction est redéployée dans la fonction. Aucun nœud n'est reconstruit. Si une bascule échoue entre-temps, déplacez les VIP à la main avec la ligne du primaire de `terraform output -json failover_commands`.
+La clé du firewall est repoussée avec la politique, celle du conteneur est redéployée dans le conteneur. Aucun nœud n'est reconstruit. Si une bascule échoue entre-temps, déplacez les VIP à la main avec la ligne du primaire de `terraform output -json failover_commands`.
 
 ## Journaux
 
@@ -61,7 +61,7 @@ scw instance security-group list zone=fr-par-1 project-id=<id-projet-spoke>
 scw instance security-group delete <id> zone=fr-par-1
 ```
 
-Faites de même dans `fr-par-2` si des VM y ont tourné. Sur le projet du hub, la même erreur vient du nettoyage de la fonction de bascule, qui se termine après sa suppression : relancez `terraform destroy` une minute plus tard.
+Faites de même dans `fr-par-2` si des VM y ont tourné. Sur le projet du hub, la même erreur vient du nettoyage du conteneur de bascule, qui se termine après sa suppression : relancez `terraform destroy` une minute plus tard.
 
 ## Dépannage
 
@@ -71,14 +71,14 @@ Faites de même dans `fr-par-2` si des VM y ont tourné. Sur le projet du hub, l
 | `need exactly one primary` au push de politique | les deux nœuds se disent primaires ou standalone : la paire n'a pas formé de cluster (réseau HA, mot de passe HA) | `get system ha status` sur chaque nœud, puis reconstruire le nœud fautif |
 | `stdio forwarding failed` en SSH vers un firewall | il démarre encore | attendre quelques minutes |
 | `Connection timed out during banner exchange` vers une VM | port fermé par la NACL du spoke | ajouter une règle `nacl_inbound` au spoke, puis appliquer |
-| plus de trafic via le hub ou vers Internet après une bascule | VIP restées sur l'ancien primaire, la fonction de bascule a échoué | lancer la ligne du primaire de `failover_commands` |
+| plus de trafic via le hub ou vers Internet après une bascule | VIP restées sur l'ancien primaire, l'appel au conteneur de bascule a échoué | lancer la ligne du primaire de `failover_commands` |
 | `fortigate.sh ready` ou le push de politique échoue en SSH | le poste n'est pas dans `admin_cidrs`, ou `ssh` ou `scw` manque | corriger, puis relancer l'apply |
 | `admin key never accepted: user data not applied` | FortiOS n'a pas lu ses user data : le disque avait déjà démarré, ou l'Instance a une IP publique (pas de CD-ROM NoCloud) | repartir du snapshot d'usine, sans IP publique, et reconstruire ; en console série, `diagnose debug cloudinit show` montre ce que FortiOS a lu |
 | le plan échoue sur `yamldecode` ou refuse la politique | erreur de syntaxe, alias inconnu, description en double ou contenant `<`, `>` ou `&` | corriger `policy.yaml` |
 | le plan refuse les CIDR | chevauchement entre `cidrs`, `spoke_supernet` et les CIDR on-prem | corriger les valeurs |
 | le certificat Edge Services n'est pas émis | le CNAME du FQDN manque | créer le CNAME vers `edge_cname_target` |
 | `resource is still in use` à la destruction d'un spoke | security group « Default » dans le projet | voir « Détruire » |
-| `resource is still in use` à la destruction du projet du hub | nettoyage de la fonction de bascule pas encore terminé | relancer `terraform destroy` |
+| `resource is still in use` à la destruction du projet du hub | nettoyage du conteneur de bascule pas encore terminé | relancer `terraform destroy` |
 | `Command cancelled by user` sur `execute ha failover set 1` | commande passée sans terminal (`ssh ... 'cmd'`) | ouvrir une session SSH interactive et répondre `y` |
 
 ## Limites connues

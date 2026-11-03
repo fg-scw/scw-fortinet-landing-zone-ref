@@ -50,7 +50,7 @@ output "firewall" {
 }
 
 output "failover_commands" {
-  description = "Manual fallback of the failover function: moves the data VIPs in IPAM to the node of the line, from its peer. Run the line of the FGCP primary."
+  description = "Manual fallback of the failover container: moves the data VIPs in IPAM to the node of the line, from its peer. Run the line of the FGCP primary."
   value = {
     for k in keys(local.fw) : k => join("; ", [
       for net, ip in scaleway_ipam_ip.data_vip :

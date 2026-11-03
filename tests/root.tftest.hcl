@@ -37,18 +37,19 @@ mock_provider "scaleway" {
   mock_resource "scaleway_s2s_vpn_gateway" {
     defaults = { id = "fr-par-1/44444444-4444-4444-4444-444444444444" }
   }
-  mock_resource "scaleway_function_namespace" {
+  mock_resource "scaleway_container_namespace" {
     defaults = { id = "fr-par/44444444-4444-4444-4444-444444444444" }
   }
-  mock_resource "scaleway_function" {
+  mock_resource "scaleway_container" {
     override_during = plan
-    defaults        = { id = "fr-par/44444444-4444-4444-4444-444444444444", domain_name = "failover.functions.test" }
+    defaults        = { id = "fr-par/44444444-4444-4444-4444-444444444444" }
   }
   mock_resource "scaleway_iam_api_key" {
     override_during = plan
     defaults        = { secret_key = "test-secret-key" }
   }
 }
+
 
 mock_provider "random" {
   override_during = plan
