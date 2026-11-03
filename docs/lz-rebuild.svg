@@ -42,7 +42,7 @@
 <text x="1040.0" y="356.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#6D717C" text-anchor="middle">primaire</text>
 <use href="#i-fw" x="1010.0" y="230" width="60" height="60"/>
 <path d="M862 320 L928 320" stroke="#521094" stroke-width="4" fill="none" stroke-linejoin="round" stroke-dasharray="14 9" marker-end="url(#a-purple)"/>
-<text x="895" y="420" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#521094" text-anchor="middle">failover set 1 · 0,2 s</text>
+<text x="895" y="420" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#521094" text-anchor="middle">failover set 1 · 0,1 à 2 s</text>
 <text x="1200" y="110" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#521094" text-anchor="start">③ reconstruire l&#x27;ancien primaire</text>
 <line x1="1200" y1="128" x2="1710" y2="128" stroke="#E6E6E6" stroke-width="2"/>
 <line x1="1175" y1="90" x2="1175" y2="470" stroke="#E6E6E6" stroke-width="2"/>
@@ -58,7 +58,7 @@
 <rect x="1232" y="152" width="156" height="26" fill="white"/><text x="1310" y="168" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#1C1C1C" text-anchor="middle">apply -replace fw1</text>
 <line x1="1422" y1="320" x2="1488" y2="320" stroke="#4AA8F0" stroke-width="5"/>
 <text x="1455" y="420" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#6D717C" text-anchor="middle">pas de rebascule</text>
-<text x="80" y="520" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#2C8564" text-anchor="start">✓ une seule bascule pour tout le cluster : 0,2 s de perte mesurée</text>
+<text x="80" y="520" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#2C8564" text-anchor="start">✓ une seule bascule pour tout le cluster : 0,1 à 2 s de perte</text>
 <text x="80" y="554" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#2C8564" text-anchor="start">✓ le nœud reconstruit revient en secondaire, le primaire ne bouge pas</text>
 <text x="940" y="520" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#E05225" text-anchor="start">✕ attendre in-sync entre deux étapes (objets FortiGuard du primaire)</text>
 </svg>

@@ -1,16 +1,12 @@
 # Landing zone Scaleway hub & spoke avec FortiGate
 
-Socle réseau d'une organisation Scaleway, en Terraform. Le hub est un projet qui porte deux firewalls FortiGate en haute disponibilité FGCP actif-passif (un par zone), la sortie Internet, le VPN et Interlink. Chaque spoke a son propre projet et son groupe IAM. Ajouter un spoke ne touche pas aux firewalls.
+Socle réseau d'une organisation Scaleway, en Terraform. Le hub est un projet qui porte deux firewalls FortiGate en haute disponibilité FGCP actif-passif, un par zone, ainsi que la sortie Internet, le VPN et Interlink. Chaque spoke a son projet, son groupe IAM, deux VPC (Pub et Private) et ses NACL. Ajouter un spoke ne touche pas aux firewalls.
 
-Tout flux qui sort d'un spoke, ou qui y entre depuis l'extérieur, passe par le firewall. Il y a deux exceptions : le contournement Interlink (`hybrid_bypass`) et ce qu'un spoke expose lui-même (Load Balancer, IP publique). Voir les [limites](docs/OPERATIONS.md#limites-connues).
-
-La branche `hub-spoke-single-project` met le hub et les spokes dans un seul projet.
+Tout flux qui sort d'un spoke, ou qui y entre depuis l'extérieur, passe par le firewall, sauf le contournement Interlink (`hybrid_bypass`) et ce qu'un spoke expose lui-même (Load Balancer, IP publique) : voir les [limites](docs/OPERATIONS.md#limites-connues). La branche `hub-spoke-single-project` met le hub et les spokes dans un seul projet.
 
 <img alt="Vue d'ensemble : tout flux qui sort d'un spoke traverse la paire FortiGate du hub ; chaque spoke a son propre projet." src="docs/lz-overview.svg">
 
-Les firewalls démarrent sur l'image d'usine de Fortinet et se configurent seuls au premier démarrage, avec les user data cloud-init de leur Instance. Terraform vérifie ensuite chaque nœud par le bastion et pousse la politique.
-
-<img alt="Premier démarrage : Terraform écrit les user data, FortiOS les lit une seule fois sur le CD-ROM NoCloud, puis fortigate.sh vérifie le nœud par le bastion et pousse la politique." src="docs/lz-provisioning.svg">
+Les firewalls démarrent sur l'image d'usine de Fortinet et se configurent seuls au premier démarrage, avec les user data cloud-init de leur Instance. Un Serverless Container privé fait suivre au nouveau primaire les adresses virtuelles du hub.
 
 ## Contenu
 
@@ -28,28 +24,24 @@ modules/observability      relais syslog vers Cockpit (optionnel)
 
 ## Prérequis
 
-À réunir avant le premier déploiement :
+- Une organisation Scaleway et une clé API d'organisation (administrateur) : Terraform crée les projets, l'IAM et les clés de la bascule, et les connecteurs de peering du hub depuis chaque spoke.
+- Deux licences FortiGate-VM BYOL de même niveau, une par nœud, enregistrées sur FortiCare (support.fortinet.com) qui fournit les fichiers `.lic`, à ne jamais versionner. FG-VM02 pour `POP2-2C-8G`, le type par défaut, FG-VM04 pour 4 vCPU. Aucun service FortiGuard payant n'est utilisé.
+- L'image FortiOS pour KVM (`FGT_VM64_KVM-…kvm.zip` sur FortiCare, dont on extrait `fortios.qcow2`). Version validée : 8.0.2.
+- Un bucket Object Storage privé et versionné en `fr-par` pour le state et le qcow2. Le state contient le mot de passe `admin`, les licences et les clés de bascule.
+- L'IP publique fixe des administrateurs et de la machine qui déploie (`admin_cidrs`), et leurs clés SSH publiques (`admin_ssh_public_keys`).
+- Pour une exposition, la main sur le DNS de son FQDN. Pour `vpn`, une passerelle on-prem IPsec avec BGP ; pour `interlink`, un lien commandé auprès d'un partenaire ou un lien dédié.
 
-- Une organisation Scaleway et une clé API d'organisation, d'administrateur par exemple : Terraform crée les projets et l'IAM, et les connecteurs de peering du hub se créent dans le projet du hub depuis chaque spoke.
-- Deux licences FortiGate-VM BYOL, une par nœud, de même niveau : une paire FGCP doit avoir le même modèle. Le niveau suit le nombre de vCPU du type d'instance : FG-VM02 pour `POP2-2C-8G`, le type par défaut, FG-VM04 pour 4 vCPU. Chaque licence s'enregistre sur le portail FortiCare (support.fortinet.com), qui fournit son fichier `.lic`, à ne jamais versionner. La landing zone n'utilise aucun service FortiGuard payant (antivirus, IPS, filtrage web) : une licence sans bundle suffit.
-- L'image FortiOS pour KVM : le zip `FGT_VM64_KVM-…kvm.zip` de la page Firmware Images de FortiCare, dont on extrait `fortios.qcow2`. La version validée est la 8.0.2. Le qcow2 se dépose dans un bucket Object Storage de la région `fr-par`, celui du state convient, puis l'étape 1 du déploiement l'importe.
-- Un bucket Object Storage privé et versionné pour le state, en `fr-par` (commande ci-dessous). Il contient le mot de passe `admin`, les licences et les clés API de bascule.
-- L'adresse IP publique fixe des administrateurs et de la machine qui déploie (`admin_cidrs`), et leur clé SSH publique (`admin_ssh_public_keys`).
-- Les zones `fr-par-1` et `fr-par-2` (`fr-par-3` n'a ni Public Gateway ni Load Balancer).
-- Pour publier des expositions, la main sur le DNS de leurs FQDN, pour y créer un CNAME vers Edge Services.
-- Selon les options choisies : pour `vpn`, une passerelle on-prem IPsec avec BGP, son IP publique et son ASN ; pour `interlink`, un lien commandé auprès d'un partenaire Scaleway, ou un lien dédié, avec les identifiants du PoP.
-
-Sur la machine qui déploie : Terraform 1.10 ou plus récent, la CLI `scw`, `ssh`, et la CLI `aws` pour déposer le qcow2. `scw` démarre les firewalls une fois leurs cartes posées et efface leurs user data. `ssh` contrôle les nœuds par le bastion, depuis une adresse de `admin_cidrs`.
+Sur la machine qui déploie : Terraform 1.10 ou plus, `scw`, `ssh` et `aws` (dépôt du qcow2).
 
 ```bash
 export SCW_ACCESS_KEY=<clé> SCW_SECRET_KEY=<secret> SCW_DEFAULT_ORGANIZATION_ID=<id-organisation>
-export AWS_ACCESS_KEY_ID=$SCW_ACCESS_KEY AWS_SECRET_ACCESS_KEY=$SCW_SECRET_KEY   # accès au bucket du state
+export AWS_ACCESS_KEY_ID=$SCW_ACCESS_KEY AWS_SECRET_ACCESS_KEY=$SCW_SECRET_KEY   # accès au bucket
 scw object bucket create name=<bucket> region=fr-par enable-versioning=true      # privé par défaut
 ```
 
 ## Déploiement
 
-1. Importer le qcow2 FortiOS KVM d'usine (le `fortios.qcow2` du zip Fortinet, déposé dans un bucket de la région), un snapshot par zone :
+1. Importer le qcow2 d'usine, un snapshot par zone (`fr-par-3` n'a ni Public Gateway ni Load Balancer) :
 
    ```bash
    aws s3 cp fortios.qcow2 s3://<bucket>/fortios.qcow2 --endpoint-url https://s3.fr-par.scw.cloud
@@ -59,9 +51,9 @@ scw object bucket create name=<bucket> region=fr-par enable-versioning=true     
 
    Ne démarrez jamais d'Instance sur ces snapshots à la main : un disque qui a déjà démarré ignore ses user data.
 
-2. Copier `terraform.tfvars.example` en `terraform.tfvars` et `backend.hcl.example` en `backend.hcl`, puis les remplir : identifiants des snapshots (`<zone>/<uuid>`), licences, `admin_cidrs`, spokes. Pour ajouter des règles au firewall, copier `policy.yaml.example` en `policy.yaml`. Les options avancées du hub (plan d'adressage, numéros d'hôte, taille des Public Gateways) sont des arguments de `module "hub"` dans `main.tf`, décrits dans `modules/hub/variables.tf`.
+2. Copier `terraform.tfvars.example` en `terraform.tfvars` et `backend.hcl.example` en `backend.hcl`, puis les remplir : snapshots (`<zone>/<uuid>`), licences, `admin_cidrs`, spokes. Pour ouvrir des flux au firewall, copier `policy.yaml.example` en `policy.yaml`. Les options avancées du hub (adressage, taille des Public Gateways) sont des arguments de `module "hub"` dans `main.tf`.
 
-3. Déployer :
+3. Déployer. L'apply attend que les deux nœuds soient prêts (environ 3 min 30), puis pousse la politique :
 
    ```bash
    terraform init -backend-config=backend.hcl
@@ -69,22 +61,18 @@ scw object bucket create name=<bucket> region=fr-par enable-versioning=true     
    terraform apply tfplan
    ```
 
-   L'apply attend que les deux nœuds soient prêts (environ 3 min 30), puis pousse la politique.
-
-4. Récupérer les accès (SSH par le bastion, WebUI par tunnel `ssh -L`) et le mot de passe `admin` :
+4. Récupérer les accès (SSH par le bastion, WebUI par tunnel `ssh -L`, accès direct si `admin_direct_access = true`) et le mot de passe `admin` :
 
    ```bash
    terraform output -json access
    terraform output -raw fw_admin_password
    ```
 
-   Avec `admin_direct_access = true`, `access` donne aussi l'accès direct par l'IP publique de chaque Public Gateway (voir [Exploitation](docs/OPERATIONS.md#accès-direct-aux-firewalls)).
-
-   Créez un CNAME de chaque FQDN des expositions vers son `edge_cname_target` (sortie `endpoints`), sans quoi le certificat n'est pas émis.
+   Pour chaque exposition, créez un CNAME de son FQDN vers son `edge_cname_target` (sortie `endpoints`), sans quoi le certificat n'est pas émis.
 
 ## Tests
 
-Ils tournent hors ligne, sans appel à Scaleway :
+Hors ligne, sans appel à Scaleway :
 
 ```bash
 terraform init -backend=false && terraform test
@@ -95,26 +83,19 @@ python3 -m unittest discover -s modules/hub/ipam_follow
 
 ## Prouver la bascule
 
-Depuis une VM d'un spoke, on lance un ping toutes les 100 ms vers une VM d'un autre spoke (est-ouest, à travers le firewall) et vers Internet (sortie par la VIP egress). Le flux est-ouest doit être autorisé dans `policy.yaml`. On fait ensuite tomber le primaire.
+Depuis une VM d'un spoke, lancez un ping toutes les 100 ms vers une VM d'un autre spoke (est-ouest, à autoriser dans `policy.yaml`) et vers Internet (sortie par la VIP egress), puis faites tomber le primaire :
 
 ```bash
 ping -D -i 0.1 <IP d'une VM d'un autre spoke> | tee ew.log
 ping -D -i 0.1 1.1.1.1 | tee internet.log
 ```
 
-Pour une bascule commandée, sur le primaire :
+- Bascule commandée, sur le primaire : `execute ha failover set 1`. Pour revenir, `execute ha failover unset 1` sur le même nœud ; tant que l'indicateur reste posé, ce nœud repasse secondaire à chaque retour du pair.
+- Perte brutale : `set status down` d'un coup sur les ports hub, egress et HA du primaire. Arrêter ou redémarrer l'Instance ne simule pas une panne : FortiOS s'éteint proprement et passe la main.
 
-```
-execute ha failover set 1
-```
+Le temps de coupure est le plus grand écart entre deux `icmp_seq` consécutifs, multiplié par 0,1 s. `get system ha status` et le placement des VIP dans l'IPAM confirment le nouveau primaire.
 
-Pour revenir, `execute ha failover unset 1` sur le même nœud. Tant que cet indicateur reste posé, le nœud repasse secondaire à chaque retour du pair.
-
-Pour simuler la perte brutale du primaire, on coupe d'un coup ses interfaces de données et de heartbeat : `set status down` sur les ports hub, egress et HA. Redémarrer l'Instance depuis la console ne simule pas une panne : FortiOS s'arrête proprement et passe la main avant de partir.
-
-Le temps de coupure est le plus grand écart entre deux `icmp_seq` consécutifs, multiplié par 0,1 s. `get system ha status` et le placement des VIP dans IPAM confirment le nouveau primaire.
-
-Résultats mesurés le 3 novembre 2026 (FortiOS 8.0.2, deux spokes dans deux projets, ping toutes les 100 ms et une requête HTTPS toutes les 200 ms vers Internet) :
+Mesures du 3 novembre 2026 (FortiOS 8.0.2, deux spokes dans deux projets, ping toutes les 100 ms, une requête HTTPS vers Internet toutes les 200 ms) :
 
 | Scénario | Est-ouest | Internet | HTTPS perdues |
 |---|---|---|---|
@@ -124,7 +105,7 @@ Résultats mesurés le 3 novembre 2026 (FortiOS 8.0.2, deux spokes dans deux pro
 | Perte brutale du primaire | 5,9 s | 5,9 s | 5 |
 | Retour de l'ancien primaire | 0 s | 0 s | 0 |
 
-Une perte brutale coûte la détection FGCP, 20 heartbeats manqués à 200 ms soit 4 s, puis le déplacement des deux VIP dans IPAM, environ 2 s. Le trafic reprend ensuite sans intervention.
+Une perte brutale coûte la détection FGCP, 20 heartbeats manqués à 200 ms soit 4 s, puis le déplacement des deux VIP dans l'IPAM, environ 2 s. Le trafic reprend sans intervention.
 
 ## Documentation
 
