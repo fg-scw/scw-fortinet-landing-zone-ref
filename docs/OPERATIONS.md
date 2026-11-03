@@ -73,6 +73,7 @@ Faites de même dans `fr-par-2` si des VM y ont tourné. La même erreur vient a
 |---|---|---|
 | `insufficient permissions: read security_groups` au premier apply | projet créé quelques secondes plus tôt, droits pas encore propagés | relancer `terraform plan` puis `terraform apply` : les ressources en échec sont remplacées |
 | `need exactly one primary` au push de politique | les deux nœuds se disent primaires ou standalone : la paire n'a pas formé de cluster (réseau HA, mot de passe HA) | `get system ha status` sur chaque nœud, puis reconstruire le nœud fautif |
+| `FortiGate time is out of sync` dans le WebUI du secondaire, `synchronized: no` dans `diagnose sys ntp status` | normal en FGCP : le secondaire n'interroge pas NTP, il prend l'heure du primaire | aucune ; `execute time` doit donner la même heure sur les deux nœuds |
 | `stdio forwarding failed` en SSH vers un firewall | il démarre encore | attendre quelques minutes |
 | `Connection timed out during banner exchange` vers une VM | port fermé par la NACL du spoke | ajouter une règle `nacl_inbound` au spoke, puis appliquer |
 | plus de trafic via le hub ou vers Internet après une bascule | VIP restées sur l'ancien primaire, l'appel au conteneur de bascule a échoué | lancer la ligne du primaire de `failover_commands` |
