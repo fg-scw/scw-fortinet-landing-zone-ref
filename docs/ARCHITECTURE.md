@@ -32,7 +32,7 @@ Un seul firewall est actif, le primaire FGCP. Les deux nœuds échangent un hear
 
 Les nœuds n'ont aucune IP publique. Leur port de management (`port2`) est sur le réseau `mgmt`, isolé, où est rattachée la Public Gateway de chaque zone (masquerade, route par défaut, bastion SSH). On joint un nœud par le bastion de sa zone, depuis une adresse de `admin_cidrs`.
 
-<img alt="Administration : les firewalls se joignent par le bastion d'une Public Gateway, dans un VPC de management isolé." src="lz-admin.svg">
+<img alt="Administration : chaque firewall se joint par le bastion de la Public Gateway de sa zone, dans un VPC de management isolé." src="lz-admin.svg">
 
 ## Premier démarrage
 
