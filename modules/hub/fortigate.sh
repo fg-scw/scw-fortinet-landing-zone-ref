@@ -102,8 +102,11 @@ is_primary() { cli "$1" <<<'get system status' | grep -E 'Current HA mode: a-p, 
 
 ready() {
   local h=$FGT_HOST
-  # A rebuilt node has a new host key on the same IP.
+  # A rebuilt node has a new host key on the same IP, and so has a new
+  # Public Gateway that got the public IP of an old one.
   rm -f "$(kh "$h")"
+  local j b; j=$(jump "$h"); b=${j%:*}
+  ssh-keygen -R "[${b#*@}]:${j##*:}" -f "$(kh bastion)" >/dev/null 2>&1 || true
   log "waiting for the user data (admin key accepted)"
   for _ in $(seq 90); do
     status "$h" | grep 'Version:' >/dev/null && break
