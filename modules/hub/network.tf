@@ -139,10 +139,28 @@ resource "scaleway_vpc_gateway_network" "mgmt" {
 locals {
   # fw1 sits in the zone of pgw "a", fw2 in the zone of pgw "b".
   fw_pgw = { fw1 = "a", fw2 = "b" }
+  # admin_direct_access: public port on the PGW -> port on the node.
+  admin_ports = { 2222 = 22, 8443 = 443 }
   bastion = {
     for k, p in local.fw_pgw : k =>
     "bastion@${scaleway_vpc_public_gateway_ip.egress[p].address}:${scaleway_vpc_public_gateway.egress[p].bastion_port}"
   }
+}
+
+# Optional direct admin access: each PGW forwards its public ports to the
+# management IP of the node in its zone. The firewall security group filters
+# the sources (admin_cidrs).
+resource "scaleway_vpc_public_gateway_pat_rule" "admin" {
+  for_each = var.admin_direct_access ? { for x in setproduct(keys(local.fw_pgw), keys(local.admin_ports)) : "${x[0]}-${x[1]}" => { fw = x[0], port = x[1] } } : {}
+
+  gateway_id   = scaleway_vpc_public_gateway.egress[local.fw_pgw[each.value.fw]].id
+  zone         = local.pgw[local.fw_pgw[each.value.fw]].zone
+  public_port  = each.value.port
+  private_ip   = local.fw[each.value.fw].ip.mgmt
+  private_port = local.admin_ports[each.value.port]
+  protocol     = "tcp"
+
+  depends_on = [scaleway_vpc_gateway_network.mgmt]
 }
 
 # Per-project subscription required by Edge Services pipelines (endpoints).

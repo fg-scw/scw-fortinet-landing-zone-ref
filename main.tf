@@ -15,6 +15,7 @@ module "hub" {
 
   policy                = local.policy
   admin_cidrs           = var.admin_cidrs
+  admin_direct_access   = var.admin_direct_access
   admin_ssh_public_keys = var.admin_ssh_public_keys
   firewall              = var.firewall
   edge_services_plan    = var.edge_services_plan
