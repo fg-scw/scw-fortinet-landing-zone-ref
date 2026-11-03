@@ -68,12 +68,15 @@ output "egress_public_ips" {
 }
 
 output "access" {
-  description = "Admin access to each firewall through the PGW bastion of its zone (admin_cidrs only); the WebUI through an SSH tunnel."
+  description = "Admin access to each firewall through the PGW bastion of its zone (admin_cidrs only); the WebUI through an SSH tunnel. With admin_direct_access, straight on the PGW public IP too."
   value = {
-    for k, n in local.fw : k => {
+    for k, n in local.fw : k => merge({
       ssh   = "ssh -J ${local.bastion[k]} admin@${n.ip.mgmt}"
       webui = "ssh -N -L 8443:${n.ip.mgmt}:443 -p ${split(":", local.bastion[k])[1]} ${split(":", local.bastion[k])[0]}  # then https://localhost:8443"
-    }
+      }, var.admin_direct_access ? {
+      direct_ssh   = "ssh -p 2222 admin@${scaleway_vpc_public_gateway_ip.egress[local.fw_pgw[k]].address}"
+      direct_webui = "https://${scaleway_vpc_public_gateway_ip.egress[local.fw_pgw[k]].address}:8443"
+    } : {})
   }
 }
 

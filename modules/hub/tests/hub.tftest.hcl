@@ -365,6 +365,31 @@ run "management_is_private" {
     ])])
     error_message = "One firewall security group per zone (public and management NICs): SSH and HTTPS from the PGW bastions only."
   }
+  assert {
+    condition     = length(scaleway_vpc_public_gateway_pat_rule.admin) == 0 && !can(output.access.fw1.direct_ssh)
+    error_message = "No direct admin access by default."
+  }
+}
+
+run "direct_admin_access" {
+  command = plan
+
+  variables {
+    admin_direct_access = true
+  }
+
+  assert {
+    condition = toset([for r in scaleway_vpc_public_gateway_pat_rule.admin : "${r.zone} ${r.public_port}>${r.private_ip}:${r.private_port}/${r.protocol}"]) == toset([
+      "fr-par-1 2222>10.0.6.11:22/tcp", "fr-par-1 8443>10.0.6.11:443/tcp", "fr-par-2 2222>10.0.6.12:22/tcp", "fr-par-2 8443>10.0.6.12:443/tcp",
+    ])
+    error_message = "Each PGW forwards 2222 and 8443 to SSH and HTTPS on the management IP of the node in its zone."
+  }
+  assert {
+    condition = alltrue([for sg in scaleway_instance_security_group.fw : toset([for r in sg.inbound_rule : "${r.protocol} ${r.ip_range} ${r.port}"]) == toset([
+      "TCP 10.0.6.2/32 22", "TCP 10.0.6.2/32 443", "TCP 10.0.6.3/32 22", "TCP 10.0.6.3/32 443", "TCP 203.0.113.10/32 22", "TCP 203.0.113.10/32 443",
+    ])])
+    error_message = "The firewall security group lets admin_cidrs in, since the PAT rules do not filter sources."
+  }
 }
 
 run "remote_syslog" {

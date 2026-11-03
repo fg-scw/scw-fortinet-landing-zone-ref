@@ -81,6 +81,12 @@ variable "admin_cidrs" {
   }
 }
 
+variable "admin_direct_access" {
+  description = "Reach each firewall straight on the public IP of the PGW of its zone: TCP 2222 to SSH and 8443 to the WebUI, from admin_cidrs only. Off: through the PGW bastion only."
+  type        = bool
+  default     = false
+}
+
 variable "admin_ssh_public_keys" {
   description = "OpenSSH public keys for the bastion and the firewalls' admin account (the first 3 on the firewalls)."
   type        = list(string)

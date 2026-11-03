@@ -40,6 +40,10 @@ terraform apply -replace='module.hub.scaleway_iam_api_key.ipam_follow'  # clé d
 
 La clé du firewall est repoussée avec la politique, celle du conteneur est redéployée dans le conteneur. Aucun nœud n'est reconstruit. Si une bascule échoue entre-temps, déplacez les VIP à la main avec la ligne du primaire de `terraform output -json failover_commands`.
 
+## Accès direct aux firewalls
+
+Par défaut, on joint les firewalls par le bastion (sortie `access`). Avec `admin_direct_access = true`, chaque Public Gateway redirige aussi ses ports publics vers le nœud de sa zone : `ssh -p 2222 admin@<ip-pgw>` et `https://<ip-pgw>:8443`, que la sortie `access` donne en `direct_ssh` et `direct_webui`. Seules les adresses de `admin_cidrs` passent : les redirections ne filtrent pas la source, le security group des firewalls si. L'option s'active et se retire par un apply, sans reconstruire les nœuds. Le WebUI présente le certificat auto-signé du FortiGate.
+
 ## Journaux
 
 Avec `observability = true`, une petite VM du réseau Egress reçoit le syslog des firewalls (RFC 5424, port 514 en UDP et TCP) et Grafana Alloy le pousse dans Cockpit, dans le projet. Le relais n'a ni HA ni TLS : s'il tombe, les firewalls gardent leurs journaux en local, et le trafic ne quitte pas le Private Network. Si le client a déjà un SIEM, laissez `observability = false` et mettez son collecteur dans `firewall.syslog`.

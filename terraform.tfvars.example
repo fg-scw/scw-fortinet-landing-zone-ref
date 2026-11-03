@@ -6,6 +6,10 @@
 admin_cidrs           = ["203.0.113.10/32"]
 admin_ssh_public_keys = ["ssh-ed25519 AAAA_REPLACE_ME admin@example"]
 
+# Also reach each firewall on the public IP of its Public Gateway (SSH 2222,
+# WebUI 8443), from admin_cidrs only. Off: through the bastion only.
+# admin_direct_access = true
+
 # Factory FortiOS KVM snapshot of each zone (README, step 1) and the licence
 # file of each node (.lic, never committed). The node zones also set the zones
 # of the Public Gateways and VPN gateways.

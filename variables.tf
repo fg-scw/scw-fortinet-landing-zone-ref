@@ -21,6 +21,12 @@ variable "admin_cidrs" {
   type        = list(string)
 }
 
+variable "admin_direct_access" {
+  description = "Also reach each firewall on the public IP of its Public Gateway (SSH 2222, WebUI 8443), from admin_cidrs only."
+  type        = bool
+  default     = false
+}
+
 variable "admin_ssh_public_keys" {
   description = "SSH keys of the firewall admin account and the bastions."
   type        = list(string)
