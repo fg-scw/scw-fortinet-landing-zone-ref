@@ -40,7 +40,7 @@ Terraform range dans les user data cloud-init de l'Instance la licence du nœud,
 
 <img alt="Premier démarrage : Terraform écrit les user data, FortiOS les lit une seule fois sur le CD-ROM NoCloud, puis fortigate.sh vérifie le nœud par le bastion et pousse la politique." src="lz-provisioning.svg">
 
-Un nœud est prêt en 3 min 30 environ, et les deux démarrent en parallèle. `fortigate.sh ready` vérifie alors chaque nœud par le bastion (clé `admin` acceptée, licence valide, ports dans le bon ordre), puis `fortigate.sh policy` pousse la politique sur le primaire, qui la synchronise. Terraform efface enfin les user data de l'Instance, qui contiennent la licence et les mots de passe. Pendant les quelques minutes du premier démarrage, l'API Instance permet de les lire : réservez le projet du hub aux opérateurs.
+Un nœud est prêt en 3 min 30 environ, et les deux démarrent en parallèle. `fortigate.sh ready` vérifie alors chaque nœud par le bastion (clé `admin` acceptée, licence valide, ports dans le bon ordre). Il oublie d'abord les clés d'hôte qu'il avait retenues pour ce nœud et son bastion : un nœud reconstruit a une nouvelle clé, et une nouvelle Public Gateway peut reprendre l'IP publique d'une ancienne. `fortigate.sh policy` pousse ensuite la politique sur le primaire, qui la synchronise. Terraform efface enfin les user data de l'Instance, qui contiennent la licence et les mots de passe. Pendant les quelques minutes du premier démarrage, l'API Instance permet de les lire : réservez le projet du hub aux opérateurs.
 
 ## Bascule
 
@@ -48,14 +48,6 @@ Le routeur du VPC suit la réservation IPAM de la VIP du Hub et ignore les ARP g
 
 <img alt="Bascule : le routeur VPC suit l'IPAM, pas le GARP ; le nouveau primaire FortiGate appelle un Serverless Container privé qui déplace la VIP dans l'IPAM." src="lz-ha.svg">
 
-Mesures du 2 novembre 2026, avec deux VM de spoke qui envoient 10 pings par seconde vers Internet à travers le firewall :
-
-| Événement | Perte | Session HTTPS en cours |
-|---|---|---|
-| arrêt du primaire | 1 s | conservée |
-| bascule forcée (`execute ha failover set 1`) | 0,2 s | conservée |
-| retour de l'ancien primaire | aucune, pas de rebascule | conservée |
-
-Le 3 novembre 2026, après le passage au conteneur, deux bascules forcées par `diagnose sys ha reset-uptime`, de fw1 vers fw2 puis retour, ont coûté 0,2 s puis 1 s de perte (5 pings par seconde, déploiement à projet unique), et les deux VIP ont suivi le nouveau primaire dans l'IPAM.
+Une bascule commandée ou un reboot du primaire coupe le trafic 2,1 s au plus. La perte brutale du primaire le coupe 5,9 s : 4 s de détection FGCP, puis le déplacement des VIP dans l'IPAM. La méthode et le détail des mesures sont dans le README, section [Prouver la bascule](../README.md#prouver-la-bascule).
 
 Le conteneur tourne sur l'image Python officielle, avec le handler sans dépendance passé en commande : il n'y a pas de registre à alimenter. Il garde une instance chaude et n'a pas de point d'accès public. Son point d'accès privé est dans le Private Network du Hub, que chaque nœud joint directement par son port hub : l'appel ne passe ni par Internet ni par les Public Gateways. Le firewall l'appelle par son adresse IP, que Terraform lit dans l'IPAM et injecte au push de la politique, en HTTPS sans vérification du nom. FortiOS refuse en effet de résoudre les noms en `.internal`, et le certificat du point d'accès privé ne couvre que ce nom. Le Private Network du Hub ne porte que les deux firewalls et le conteneur, et Scaleway rejette les trames dont l'adresse MAC source n'est pas celle de la VM. Le rattrapage horaire et la sortie `failover_commands` couvrent un appel perdu.
