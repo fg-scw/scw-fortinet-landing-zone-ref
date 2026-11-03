@@ -91,6 +91,39 @@ bash modules/hub/test_fortigate.sh
 python3 -m unittest discover -s modules/hub/ipam_follow
 ```
 
+## Prouver la bascule
+
+Depuis une VM d'un spoke, on lance un ping toutes les 100 ms vers une VM d'un autre spoke (est-ouest, à travers le firewall) et vers Internet (sortie par la VIP egress). Le flux est-ouest doit être autorisé dans `policy.yaml`. On fait ensuite tomber le primaire.
+
+```bash
+ping -D -i 0.1 <IP d'une VM d'un autre spoke> | tee ew.log
+ping -D -i 0.1 1.1.1.1 | tee internet.log
+```
+
+Pour une bascule commandée, sur le primaire :
+
+```
+execute ha failover set 1
+```
+
+Pour revenir, `execute ha failover unset 1` sur le même nœud. Tant que cet indicateur reste posé, le nœud repasse secondaire à chaque retour du pair.
+
+Pour simuler la perte brutale du primaire, on coupe d'un coup ses interfaces de données et de heartbeat : `set status down` sur les ports hub, egress et HA. Redémarrer l'Instance depuis la console ne simule pas une panne : FortiOS s'arrête proprement et passe la main avant de partir.
+
+Le temps de coupure est le plus grand écart entre deux `icmp_seq` consécutifs, multiplié par 0,1 s. `get system ha status` et le placement des VIP dans IPAM confirment le nouveau primaire.
+
+Résultats mesurés le 3 novembre 2026 (FortiOS 8.0.2, deux spokes dans deux projets, ping toutes les 100 ms et une requête HTTPS toutes les 200 ms vers Internet) :
+
+| Scénario | Est-ouest | Internet | HTTPS perdues |
+|---|---|---|---|
+| Bascule commandée fw1 vers fw2 | 0,1 s | 0,1 s | 0 |
+| Bascule commandée fw2 vers fw1 | 2,1 s | 2,0 s | 2 |
+| Reboot de l'Instance primaire | 1,0 s | 1,0 s | 1 |
+| Perte brutale du primaire | 5,9 s | 5,9 s | 5 |
+| Retour de l'ancien primaire | 0 s | 0 s | 0 |
+
+Une perte brutale coûte la détection FGCP, 20 heartbeats manqués à 200 ms soit 4 s, puis le déplacement des deux VIP dans IPAM, environ 2 s. Le trafic reprend ensuite sans intervention.
+
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) : flux, adressage, filtrage, administration, premier démarrage, bascule.
