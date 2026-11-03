@@ -78,6 +78,8 @@ scw object bucket create name=<bucket> region=fr-par enable-versioning=true     
    terraform output -raw fw_admin_password
    ```
 
+   Avec `admin_direct_access = true`, `access` donne aussi l'accès direct par l'IP publique de chaque Public Gateway (voir [Exploitation](docs/OPERATIONS.md#accès-direct-aux-firewalls)).
+
    Créez un CNAME de chaque FQDN des expositions vers son `edge_cname_target` (sortie `endpoints`), sans quoi le certificat n'est pas émis.
 
 ## Tests
@@ -127,4 +129,4 @@ Une perte brutale coûte la détection FGCP, 20 heartbeats manqués à 200 ms so
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) : flux, adressage, filtrage, administration, premier démarrage, bascule.
-- [docs/OPERATIONS.md](docs/OPERATIONS.md) : spokes, politique, reconstruction d'un firewall, journaux, destruction, dépannage, limites.
+- [docs/OPERATIONS.md](docs/OPERATIONS.md) : spokes, politique, reconstruction d'un firewall, clés de bascule, accès direct, journaux, destruction, dépannage, limites.
