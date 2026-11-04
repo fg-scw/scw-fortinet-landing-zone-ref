@@ -86,11 +86,28 @@ Sur le projet du hub, la même erreur vient du nettoyage du conteneur de bascule
 | le certificat Edge Services n'est pas émis | le CNAME du FQDN manque | créer le CNAME vers `edge_cname_target` |
 | `Command cancelled by user` sur `execute ha failover set 1` | commande passée sans terminal (`ssh ... 'cmd'`) | ouvrir une session SSH interactive et répondre `y` |
 
+## Après la réparation d'un firewall
+
+Un nœud qui a perdu ses ports revient secondaire avec ses link monitors figés à `dead`. À sa prochaine prise de rôle, ses routes par défaut tomberaient 2 s vers T+14 s et les sessions Internet disparaîtraient du firewall ([détail](HA-CONTENEUR.md#silence-des-sessions-internet)). Une fois le nœud in-sync, remettez-les à zéro, sur ce secondaire uniquement :
+
+```
+config system link-monitor
+edit pgw-a
+set status disable
+next
+edit pgw-b
+set status disable
+next
+end
+```
+
+Puis relancez les mêmes commandes avec `set status enable`. Vérifiez ensuite `get system ha status` : le cluster doit rester in-sync.
+
 ## Limites connues
 
 - Les chemins Internet qu'un spoke crée lui-même (IP publique d'instance, Load Balancer, nœuds Kapsule avec IP publique) ne passent pas par le firewall. Le contrôle passe par l'IAM et un inventaire des projets spoke (`scw instance ip list project-id=<projet>`, `scw lb list project-id=<projet>`). Retirer `InstancesFullAccess`, `LoadBalancersFullAccess` ou `KubernetesFullAccess` de `iam_permission_sets` (argument de `module "spoke"` dans `main.tf`) ferme ces voies.
 - Le state contient le mot de passe `admin`, le mot de passe HA, les user data des firewalls (licences comprises) et les clés de bascule : protégez le bucket.
-- Les règles sont en *sloppy state* par défaut : les sessions survivent à une bascule, jamais à la perte d'une Public Gateway, car l'IP publique change. Après une bascule, une session Internet qui attend des données peut rester muette jusqu'à son prochain paquet sortant : voir [HA-CONTENEUR.md](HA-CONTENEUR.md#silence-des-sessions-internet).
+- Les règles sont en *sloppy state* par défaut : les sessions survivent à une bascule, jamais à la perte d'une Public Gateway, car l'IP publique change. Après la bascule vers un nœud réparé, une session Internet qui attend des données peut rester muette jusqu'à son prochain paquet sortant : voir [Après la réparation d'un firewall](#après-la-réparation-dun-firewall).
 - `policy.nat_outbound` n'est pas pris en charge : le trafic Internet des spokes sort par la VIP egress.
 - Les NACL laissent revenir TCP et UDP sur 32768-65535 depuis toute source : un service qui écoute sur ces ports est joignable hors du spoke, sauf derrière le security group de référence du spoke (sortie `security_group_ids`). L'équipe du spoke peut modifier ces groupes : surveillez-les par Audit Trail. Un security group sur une carte Private Network y désactive l'IPv6, et les NACL n'ont ni règles ni routes IPv6.
 - Redis, MongoDB, Kafka, OpenSearch et ClickHouse ne suivent pas le routage VPC : ils ne sont joignables que depuis leur Private Network.
