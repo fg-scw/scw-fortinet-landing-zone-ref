@@ -4,11 +4,13 @@ The VPC router takes the next hop of the hub VIP from its last writer: a
 Gratuitous ARP or this IPAM reservation. FGCP's Gratuitous ARP moves the
 traffic first; this function keeps IPAM right and is a second path if that ARP
 has no effect. The automation stitch of the node that just became primary
-POSTs {"node": "<hostname>"}. A repeated call is harmless, but this code does
-not know who is primary: a call naming a secondary black-holes the hub until
-the next hourly reconcile. It runs in a private Serverless Container reached
-on its private endpoint in the hub Private Network: the platform checks the
-token (X-Auth-Token) before this code runs.
+POSTs {"node": "<hostname>", "at": "<event time, ns>"}. This code does not know
+who is primary, and FortiOS can send a call long after its event: a call
+naming a secondary would black-hole the hub. So a call older than the newest
+one seen is refused; the Gratuitous ARP has already moved the traffic, and the
+hourly reconcile puts IPAM right. It runs in a private Serverless Container
+reached on its private endpoint in the hub Private Network: the platform
+checks the token (X-Auth-Token) before this code runs.
 
 Environment: REGION, NODES (JSON {hostname: [{ip_id, mac, name}, ...]}, hub
 VIP first), secret SCW_SECRET_KEY (IAM application limited to IPAM).
@@ -16,10 +18,16 @@ VIP first), secret SCW_SECRET_KEY (IAM application limited to IPAM).
 
 import json
 import os
+import threading
 import urllib.error
 import urllib.request
 
 API = "https://api.scaleway.com/ipam/v1/regions/{region}/ips/{ip_id}"
+
+# ponytail: in memory, the container runs one instance (max_scale). A restart
+# forgets it: a late call right after one gets through, the reconcile fixes it.
+latest = 0
+lock = threading.Lock()
 
 
 def call(method, url, body=None):
@@ -54,21 +62,28 @@ def follow(vip, region):
 
 
 def handle(event, context):
+    global latest
     try:
-        node = json.loads(event.get("body") or "{}").get("node")
-    except (ValueError, AttributeError):
-        node = None
+        body = json.loads(event.get("body") or "{}")
+        node, at = body.get("node"), int(body.get("at") or 0)
+    except (ValueError, TypeError, AttributeError):
+        node, at = None, 0
     vips = json.loads(os.environ["NODES"]).get(node)
     if not vips:
         print(json.dumps({"node": node, "error": "unknown node"}))
         return {"statusCode": 400, "body": f"unknown node {node!r}"}
-    result = {}
-    try:
-        for vip in vips:
-            result[f'{vip["ip_id"]} -> {vip["mac"]}'] = follow(vip, os.environ["REGION"])
-    except Exception as e:  # logged for Cockpit, the hourly reconcile retries
-        print(json.dumps({"node": node, "done": result, "error": str(e)}))
-        return {"statusCode": 502, "body": json.dumps({"done": result, "error": str(e)})}
+    with lock:
+        if at < latest:
+            print(json.dumps({"node": node, "at": at, "latest": latest, "error": "stale call"}))
+            return {"statusCode": 409, "body": "stale call"}
+        latest = at
+        result = {}
+        try:
+            for vip in vips:
+                result[f'{vip["ip_id"]} -> {vip["mac"]}'] = follow(vip, os.environ["REGION"])
+        except Exception as e:  # logged for Cockpit, the hourly reconcile retries
+            print(json.dumps({"node": node, "done": result, "error": str(e)}))
+            return {"statusCode": 502, "body": json.dumps({"done": result, "error": str(e)})}
     print(json.dumps({"node": node, "done": result}))
     return {"statusCode": 200, "body": json.dumps(result)}
 

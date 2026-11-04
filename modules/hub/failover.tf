@@ -62,7 +62,7 @@ resource "scaleway_container" "ipam_follow" {
   enable_private_endpoint        = true
   enable_default_public_endpoint = false
   min_scale                      = 1 # a cold start costs as much as the whole failover
-  max_scale                      = 2
+  max_scale                      = 1 # the handler keeps the newest event time in memory
   timeout                        = 60
   tags                           = var.tags
 

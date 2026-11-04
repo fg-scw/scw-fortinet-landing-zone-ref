@@ -42,6 +42,9 @@ def run(body):
 
 
 class HandleTest(unittest.TestCase):
+    def setUp(self):
+        handler.latest = 0
+
     def test_moves_both_vips_then_is_idempotent(self):
         ipam = FakeIpam({"hub": "02:00:00:00:00:a1", "egress": "02:00:00:00:00:a2"})
         with mock.patch.object(handler, "call", ipam):
@@ -49,6 +52,17 @@ class HandleTest(unittest.TestCase):
             self.assertEqual(ipam.moves, ["hub", "egress"])
             self.assertEqual(set(json.loads(run({"node": "fw1"})["body"]).values()), {"in place"})
             self.assertEqual(len(ipam.moves), 2)
+
+    def test_stale_call_moves_nothing(self):
+        ipam = FakeIpam({"hub": "02:00:00:00:00:a1", "egress": "02:00:00:00:00:a2"})
+        with mock.patch.object(handler, "call", ipam):
+            self.assertEqual(run({"node": "fw1", "at": "200"})["statusCode"], 200)
+            ipam.holders.update(hub="02:00:00:00:00:a1", egress="02:00:00:00:00:a2")
+            ipam.moves.clear()
+            self.assertEqual(run({"node": "fw1", "at": "100"})["statusCode"], 409)
+            self.assertEqual(ipam.moves, [])
+            self.assertEqual(run({"node": "fw1", "at": "200"})["statusCode"], 200)
+            self.assertEqual(ipam.moves, ["hub", "egress"])
 
     def test_retries_when_the_holder_changed(self):
         ipam = FakeIpam({"hub": "02:00:00:00:00:a1", "egress": "02:00:00:00:00:02"}, conflicts=1)
@@ -67,6 +81,7 @@ class HandleTest(unittest.TestCase):
         with mock.patch.object(handler, "call", ipam):
             self.assertEqual(run({"node": "fw9"})["statusCode"], 400)
             self.assertEqual(handler.handle({"body": "not json"}, None)["statusCode"], 400)
+            self.assertEqual(run({"node": "fw1", "at": "soon"})["statusCode"], 400)
 
     def test_api_error_is_a_502(self):
         def broken(*_):
