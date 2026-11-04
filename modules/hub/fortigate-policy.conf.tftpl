@@ -73,7 +73,7 @@ config system automation-action
         set uri "${failover_host}/"
         set port 443
         set verify-host-cert disable
-        set http-body "{\"node\":\"%%log.devname%%\"}"
+        set http-body "{\"node\":\"%%log.devname%%\",\"at\":\"%%log.eventtime%%\"}"
         config http-headers
             edit 1
                 set key "X-Auth-Token"

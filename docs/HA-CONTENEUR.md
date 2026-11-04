@@ -34,10 +34,10 @@ La VIP Egress est différente : ses clients, les Public Gateways, font de l'ARP 
 ## Ce que fait le conteneur
 
 1. Le changement de rôle écrit l'événement 37892 `ha_role=primary`, ce qui lance `lz-ipam-follow`.
-2. Environ 2,5 s après la bascule, le nouveau primaire appelle le conteneur sur le réseau hub et envoie son nom d'hôte.
+2. Environ 2,5 s après la bascule, le nouveau primaire appelle le conteneur sur le réseau hub et envoie son nom d'hôte avec l'heure de l'événement.
 3. Le conteneur déplace les deux VIP vers ce nœud dans l'IPAM.
 
-Chaque événement produit un seul appel : les répétitions à 10 et 30 s ne partent pas. Le rattrapage horaire ne vient que du primaire : le secondaire journalise son déclenchement à la minute 7, sans appel.
+Chaque événement produit un seul appel : les répétitions à 10 et 30 s ne partent pas. Le rattrapage horaire ne vient que du primaire : le secondaire journalise son déclenchement à la minute 7, sans appel immédiat. Un appel resté en attente peut partir plus tard, si ce nœud devient primaire.
 
 ## Mesures de bascule
 
@@ -88,11 +88,15 @@ La correction de l'entrée par la requête ARP du nouveau primaire est déduite 
 
 ## Appel tardif d'un ancien primaire
 
-Le conteneur suit le nom reçu sans savoir qui est primaire.
+Le conteneur ne sait pas qui est primaire, et FortiOS peut envoyer un appel longtemps après son événement. Une capture en clair le montre : le rattrapage de 10:42:01 de fw2, alors secondaire, n'est parti qu'à 10:43:07, 16 s après que fw2 est devenu primaire. Un appel de ce genre qui nomme un nœud redevenu secondaire déplacerait l'IPAM vers lui.
 
-Test provoqué : à 10:05, le primaire fw1 poste le nom `hub-fw2` par la même action et vers le même conteneur. L'IPAM passe sur fw2, le secondaire reçoit toutes les trames et les laisse tomber. Est-ouest, Internet, VPN et Load Balancer sont coupés 120,2 s. Le rattrapage de la minute 7 répare seul. Le pire cas est donc proche d'une heure.
+L'effet a été mesuré avant le correctif : le primaire fw1 poste le nom `hub-fw2` par la même action et vers le même conteneur. L'IPAM passe sur fw2, le secondaire reçoit toutes les trames et les laisse tomber. Est-ouest, Internet, VPN et Load Balancer sont coupés 120,2 s, jusqu'au rattrapage de la minute 7.
 
-Cinq vraies bascules aller-retour rapides, à 1,3, 2, 2,5, 3 et 3,5 s d'intervalle, n'ont pas reproduit le problème. L'IPAM finit à chaque fois sur le vrai primaire. Dans trois essais, l'ancien primaire est redevenu secondaire avant d'appeler, et aucun appel n'est parti. Dans les deux autres, son appel précède d'environ 3 s celui du nouveau primaire. Pour que le risque se réalise, l'ancien appel devrait prendre plus de 3 s de retard sur le nouveau.
+Depuis le correctif, chaque appel porte l'heure de son événement (`%%log.eventtime%%`) et le conteneur refuse, en HTTP 409, un appel plus ancien que le dernier vu. Le même appel rejoué avec une heure ancienne a été refusé à 10:52 : le journal du conteneur indique `stale call`, l'IPAM ne bouge pas et aucun ping n'est perdu. Une bascule aller-retour avec le nouveau corps déplace toujours l'IPAM, en 5 s environ, sans trou de plus de 0,35 s dans les pings.
+
+Le refus ne coupe rien : le Gratuitous ARP a déjà déplacé le trafic, et le rattrapage horaire remet l'IPAM d'aplomb. L'heure vit en mémoire : le conteneur passe à `max_scale = 1`, et un redémarrage l'oublie. Un appel tardif juste après un redémarrage passerait donc encore. Un appel récent qui nommerait le mauvais nœud passerait aussi : seuls les appels périmés sont refusés.
+
+Cinq vraies bascules aller-retour rapides, à 1,3, 2, 2,5, 3 et 3,5 s d'intervalle, avant le correctif, n'avaient pas reproduit le problème : l'IPAM finit à chaque fois sur le vrai primaire.
 
 ## Tenue dans la durée
 
@@ -109,7 +113,7 @@ Toutes les pertes datent des 10 premières minutes. La cause de ces micro-coupur
 - Il borne la coupure si le Gratuitous ARP ne fait pas son effet : 11 s au lieu d'un black hole sans fin. Ce comportement du routeur est mesuré ici, sans que nous ayons vérifié s'il est documenté, et le conteneur évite d'en dépendre seul.
 - Il garde l'IPAM juste pour la console, l'API et les sorties qui la lisent.
 
-Il ne réduit pas la coupure nominale, et il ajoute le risque décrit plus haut : une écriture fausse coupe le hub jusqu'à la prochaine écriture.
+Il ne réduit pas la coupure nominale. Une écriture fausse dans l'IPAM coupe toujours le hub jusqu'à la prochaine écriture : le conteneur écarte les appels périmés, pas un déplacement manuel vers le mauvais nœud.
 
 ## Comparaison avec les SDN Connectors
 
@@ -124,8 +128,8 @@ Une IP publique flexible est zonale : l'IP de `fr-par-1` ne s'attache pas à fw2
 ## Ce qui n'est pas prouvé
 
 - La perte brutale d'une zone : la carte existait encore dans tous les tests. Une Instance arrêtée proprement n'est pas une panne.
-- Un appel tardif survenu naturellement : le risque est prouvé par un appel provoqué, pas par une séquence réelle.
-- Pourquoi le secondaire n'envoie pas l'appel, et pourquoi une seule des trois actions part.
+- Un appel tardif naturel vers un secondaire : l'envoi retardé est observé, mais vers un nœud alors primaire. Le refus est prouvé sur un appel rejoué.
+- Pourquoi l'appel du secondaire reste en attente, et pourquoi une seule des trois actions part.
 - La variante `hub-spoke-single-project` et Interlink. Interlink évite la VIP et demande un lien partenaire.
 - Une exposition complète du hub avec Edge Services : le test s'arrête au Load Balancer.
 - La tenue au-delà de 3 h.

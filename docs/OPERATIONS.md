@@ -78,7 +78,7 @@ La même erreur vient aussi du nettoyage du conteneur de bascule, qui se termine
 | `stdio forwarding failed` en SSH vers un firewall | il démarre encore | attendre quelques minutes |
 | `REMOTE HOST IDENTIFICATION HAS CHANGED` vers un firewall ou un bastion | nœud reconstruit, ou nouvelle Public Gateway sur l'IP d'une ancienne | `ssh-keygen -R '[<ip-pgw>]:<port>'` pour le bastion, `ssh-keygen -R <ip-mgmt>` pour le nœud |
 | `Connection timed out during banner exchange` vers une VM | port fermé par la NACL du spoke | ajouter une règle `nacl_inbound`, puis appliquer |
-| plus de trafic via le hub, IPAM de la VIP Hub sur le secondaire | le routeur VPC suit la dernière écriture : appel tardif ou déplacement manuel vers le mauvais nœud | lancer la ligne du primaire de `failover_commands` ; sinon, le rattrapage de la minute 7 corrige |
+| plus de trafic via le hub, IPAM de la VIP Hub sur le secondaire | le routeur VPC suit la dernière écriture : déplacement manuel vers le mauvais nœud, ou appel tardif juste après un redémarrage du conteneur | lancer la ligne du primaire de `failover_commands` ; sinon, le rattrapage de la minute 7 corrige |
 | `fortigate.sh ready` ou le push de politique échoue en SSH | poste hors de `admin_cidrs`, ou `ssh` ou `scw` manquant | corriger, puis relancer l'apply |
 | `admin key never accepted: user data not applied` | le disque avait déjà démarré, ou l'Instance a une IP publique (pas de CD-ROM NoCloud) | repartir du snapshot d'usine, sans IP publique ; en console série, `diagnose debug cloudinit show` |
 | le plan refuse `policy.yaml` | syntaxe, alias inconnu, description en double ou contenant `<`, `>` ou `&` | corriger `policy.yaml` |

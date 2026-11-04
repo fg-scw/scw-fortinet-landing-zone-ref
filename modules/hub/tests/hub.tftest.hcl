@@ -192,7 +192,7 @@ run "failover_automation" {
   assert {
     condition = alltrue([
       can(regex("(?s)edit \"lz-became-primary\".*?set event-type event-log\\s+set logid 37892.*?set name \"ha_role\"\\s+set value \"primary\"", terraform_data.fw_policy.input)),
-      can(regex("(?s)set uri \"@@FAILOVER_HOST@@/\".*?set http-body \"\\{\\\\\"node\\\\\":\\\\\"%%log.devname%%\\\\\"\\}\".*?set value \"@@FAILOVER_KEY@@\"", terraform_data.fw_policy.input)),
+      can(regex("(?s)set uri \"@@FAILOVER_HOST@@/\".*?set http-body \"\\{\\\\\"node\\\\\":\\\\\"%%log.devname%%\\\\\",\\\\\"at\\\\\":\\\\\"%%log.eventtime%%\\\\\"\\}\".*?set value \"@@FAILOVER_KEY@@\"", terraform_data.fw_policy.input)),
       length(regexall("set action \"lz-ipam-follow\"", terraform_data.fw_policy.input)) == 4,
       scaleway_container.ipam_follow.privacy == "private",
       scaleway_container.ipam_follow.enable_default_public_endpoint == false,
