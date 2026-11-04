@@ -132,7 +132,9 @@ Le 4 novembre 2026, sur `hub-spoke-multi-project`, nous avons coupé d'un coup l
 
 Aucune intervention manuelle n'est nécessaire. Le nouveau primaire reprend le trafic entre T+4 et T+7 s par Gratuitous ARP, le conteneur déplace les VIP dans l'IPAM entre T+8 et T+11 s.
 
-Le long silence Internet vient du firewall. Vers T+14 s, les link monitors du nouveau primaire retirent et remettent les routes par défaut, et les sessions Internet disparaissent du firewall. Une session qui attend des données reste alors muette jusqu'à son prochain paquet sortant, par exemple un keepalive TCP. Avec un keepalive à 5 s, le silence tombe à 26 s au plus. Sans keepalive, la session peut ne jamais reprendre. Les applications qui gardent de longues sessions Internet doivent donc activer un keepalive court ou savoir se reconnecter.
+La seconde coupure et le long silence Internet ne touchent pas un cluster sain, mais un nœud qui a perdu ses ports plus tôt, ce qui est le cas de ces pannes en série. Le secondaire ne fait pas tourner ses link monitors et garde leur dernier état, `dead` après une panne. Quand il redevient primaire, ses routes par défaut tombent 2 s vers T+14 s et les sessions Internet disparaissent du firewall. Une session qui attend des données reste alors muette jusqu'à son prochain paquet sortant, par exemple un keepalive TCP, et peut ne jamais reprendre sans keepalive.
+
+Après la réparation d'un nœud, remettez donc ses link monitors à zéro : [docs/OPERATIONS.md](docs/OPERATIONS.md#après-la-réparation-dun-firewall). Sur trois pannes faites après cette remise à zéro, dans les deux sens, il n'y a eu ni seconde coupure ni long silence.
 
 À la réparation, le nœud revenu était in-sync au premier contrôle, 9 s après, et il reprend le rôle de secondaire sans perte. Il ne reprend le rôle de primaire que si les deux nœuds ont subi une panne à moins de 300 s d'écart et que sa priorité est plus haute. Ce failback a eu lieu trois fois sur onze, avec une coupure d'au plus 1,2 s en est-ouest et 4,3 s vers Internet, les sessions restant ouvertes.
 

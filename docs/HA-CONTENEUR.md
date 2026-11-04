@@ -130,7 +130,17 @@ Le trafic Pub ↔ Private du même spoke n'a perdu aucun paquet : il ne passe pa
 
 ### Silence des sessions Internet
 
-Vers T+14 s, sur le nouveau primaire, les link monitors `pgw-a` et `pgw-b` retirent leurs routes en même temps, et les remettent 2 s plus tard. C'est la seconde coupure Internet : elle n'a lieu que sur le réseau Egress. Nous ne savons pas pourquoi les link monitors tombent, car le trafic Internet passait à ce moment-là.
+Vers T+14 s, sur le nouveau primaire, les link monitors `pgw-a` et `pgw-b` retirent leurs routes en même temps, et les remettent 2 s plus tard. C'est la seconde coupure Internet : elle n'a lieu que sur le réseau Egress, alors que le trafic Internet passait.
+
+La cause tient au nœud qui reprend le rôle. Un secondaire ne fait pas tourner ses link monitors et garde leur dernier état. Quand ses ports tombent, cet état passe à `dead` et y reste : nous l'avons vu encore figé 66 min plus tard. Quand il devient primaire, il repart de `dead`, ses compteurs ne bougent pas jusque vers T+14 s, puis cinq probes réussis le remettent `alive`.
+
+| Survivant au moment de la panne | Essais | Seconde coupure |
+|---|---|---|
+| ports perdus depuis son dernier passage primaire | 12 | 12 |
+| ports jamais perdus depuis | 3 | 0 |
+| link monitors remis à zéro avant la panne | 3 | 0 |
+
+Ces chiffres comptent les onze essais ci-dessus, les deux pertes de zone et cinq essais de contrôle. Les pannes de ce document s'enchaînent sur les mêmes nœuds, et c'est pour cela que presque toutes montrent la coupure : la première panne d'un cluster sain ne l'a pas eue (essai 1).
 
 Les sessions Internet déjà ouvertes disparaissent alors du firewall. Sur l'essai 8, capturé des deux côtés :
 
@@ -152,9 +162,9 @@ Le silence dépend donc du keepalive du client :
 | 60 s, le défaut de curl | 62 à 135 s |
 | aucun | 28 s, 137 s, et deux sessions non reprises quand nous avons arrêté le test, 3 à 4 min plus tard |
 
-Passer `failtime` à 20 (essai 10) ou activer `snat-route-change` (essai 11) ne change rien. Nous n'avons pas de correctif côté firewall. `update-static-route disable` pourrait garder les sessions, sans l'avoir testé, mais retirerait le repli vers l'autre Public Gateway dont dépend la perte d'une zone.
+Passer `failtime` à 20 (essai 10), activer `snat-route-change` (essai 11) ou porter `route-hold` à 40 s ne change rien. Désactiver puis réactiver les link monitors sur le secondaire efface l'état figé, sans perte pendant l'opération et sans désynchroniser le cluster. Trois pannes faites ensuite, dont deux avec un survivant réellement figé, une par sens, n'ont donné ni seconde coupure ni long silence : la session Internet longue a repris en 3,4 à 6,9 s, sans reset. La procédure est dans [OPERATIONS.md](OPERATIONS.md#après-la-réparation-dun-firewall).
 
-Les essais 1 et 7 n'ont pas eu ce silence. L'essai 1 n'a pas eu de seconde coupure. L'essai 7, ralenti à 200 ko/s, l'a eue et nous n'expliquons pas la différence.
+L'essai 1 n'a pas eu de silence, faute de seconde coupure. L'essai 7, ralenti à 200 ko/s, a eu la coupure sans le silence, et nous n'expliquons pas cette différence.
 
 Hors de toute bascule, à 12:56:18, le chemin Internet s'est coupé 3,5 s. Le link monitor `pgw-a` est passé `dead` 3 s plus tard et FortiOS a retiré la route vers cette Public Gateway. La session longue a reçu un reset du serveur. `pgw-a` est repassé `alive` 18 s après.
 
@@ -165,7 +175,7 @@ Le nœud revenu était in-sync au premier contrôle, 9 s après la remise des po
 - Si l'uptime FGCP des nœuds diffère de plus de 300 s (`ha-uptime-diff-margin`), le plus ancien est primaire. Le nœud revenu compte depuis son retour : sur un cluster stable, il revient donc secondaire, sans coupure.
 - Sinon, la priorité tranche : fw1 (200) contre fw2 (100).
 
-Ces deux règles concordent avec les quinze retours mesurés, et FortiOS indique son motif dans `get system ha status`. Les failbacks des essais 3, 10 et 11 viennent de la cadence du test : fw2 était revenu moins de 300 s avant fw1. Ils ont coûté au plus 1,2 s en est-ouest, 4,3 s vers Internet et 8,4 s aux sessions TCP, sans reset. Le conteneur a replacé l'IPAM en 5 à 6 s.
+Ces deux règles concordent avec les quinze retours mesurés, et FortiOS indique son motif dans `get system ha status`. Les failbacks des essais 3, 10 et 11 viennent de la cadence du test : fw2 était revenu moins de 300 s avant fw1. Ils ont coûté au plus 1,2 s en est-ouest, 4,3 s vers Internet et 8,4 s aux sessions TCP, sans reset. fw1 y reprend le rôle avec ses link monitors figés, d'où une coupure Internet plus longue. Le conteneur a replacé l'IPAM en 5 à 6 s.
 
 ## Perte d'une zone, simulée
 
@@ -184,6 +194,8 @@ Scaleway ne permet pas d'éteindre une zone. Nous coupons les ports hub, egress 
 | Primaire après retour | fw2 | fw1 |
 
 En `fr-par-1`, le link monitor `pgw-a` déclare la Public Gateway morte, FortiOS bascule la route par défaut vers PGW b entre T+8 et T+15 s, et Internet revient à T+16,4 s. Les sessions déjà ouvertes meurent, car leur IP publique a changé.
+
+En `fr-par-2`, la seconde coupure et le silence viennent des link monitors figés de fw1, qui sortait de la perte de `fr-par-1`.
 
 Le retour n'a fait perdre aucun ping. En `fr-par-1`, la route revient vers PGW a et la session ouverte pendant la perte, passée par PGW b, a été coupée quelques secondes plus tard. Le conteneur a fonctionné dans les deux cas, car rien dans ce test ne touchait son instance.
 
@@ -209,7 +221,8 @@ Une IP publique flexible est zonale : l'IP de `fr-par-1` ne s'attache pas à fw2
 ## Ce qui n'est pas prouvé
 
 - La perte réelle d'une zone : le test la simule, les cartes et les Instances existaient encore. Une Instance arrêtée proprement n'est pas une panne. Le conteneur n'a pas perdu son instance.
-- Pourquoi les link monitors du nouveau primaire tombent vers T+14 s, et un moyen de l'éviter.
+- Pourquoi les routes tombent 10 s après l'élection : `route-hold` n'y est pour rien, `route-ttl` n'a pas été testé.
+- Une remise à zéro automatique des link monitors. La procédure reste manuelle, et le secondaire retient ses appels de stitch.
 - Un appel tardif naturel vers un secondaire : l'envoi retardé est observé, mais vers un nœud alors primaire. Le refus est prouvé sur un appel rejoué.
 - Pourquoi l'appel du secondaire reste en attente, et pourquoi une seule des trois actions part.
 - La variante `hub-spoke-single-project` et Interlink. Interlink évite la VIP et demande un lien partenaire.
