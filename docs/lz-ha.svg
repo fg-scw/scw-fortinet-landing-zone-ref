@@ -51,7 +51,7 @@
 <path d="M683.922 451.768C683.922 452.118 683.838 452.446 683.669 452.752C683.507 453.059 683.247 453.305 682.891 453.493C682.541 453.68 682.097 453.774 681.56 453.774H680.463V456.287H679.151V449.743H681.56C682.066 449.743 682.497 449.83 682.854 450.005C683.21 450.18 683.476 450.421 683.651 450.727C683.832 451.034 683.922 451.38 683.922 451.768ZM681.504 452.715C681.866 452.715 682.135 452.634 682.31 452.471C682.485 452.302 682.572 452.068 682.572 451.768C682.572 451.13 682.216 450.812 681.504 450.812H680.463V452.715H681.504Z" fill="#BF95F9"/>
 </g>
 <text x="85" y="754" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#2C8564">✓ broadcast : le next hop change en 0,1 s environ</text>
-<text x="85" y="786" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#2C8564">✓ mesuré : bascule commandée 0,1 à 2 s · ports du primaire coupés 5 à 6 s</text>
+<text x="85" y="786" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#2C8564">✓ mesuré : bascule commandée 0,1 à 2 s · ports du primaire coupés 4 à 7 s</text>
 <rect x="880" y="60" width="840" height="760" rx="6" fill="#F6F5FD" stroke="#A084FB" stroke-width="5" stroke-linecap="round"/>
 <text x="905" y="108" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="32" font-weight="700" fill="#521094">Second chemin : IPAM</text>
 <rect x="1220.58" y="160.579" width="188.841" height="89.5" rx="6.26758" fill="#EDE8FD"/>

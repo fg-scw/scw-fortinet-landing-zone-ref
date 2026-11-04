@@ -155,10 +155,12 @@ Le trafic reprend seul sur le nœud et la Public Gateway de l'autre zone. Au ret
 
 ### Ce que le conteneur apporte
 
-On le garde, sans en attendre une coupure plus courte : le Gratuitous ARP de FGCP déplace le trafic avant lui. Il sert à deux choses :
+On le garde comme assurance, sans en attendre une coupure plus courte : le Gratuitous ARP de FGCP déplace le trafic avant lui. Il sert à deux choses :
 
 - Il borne la coupure si le Gratuitous ARP reste sans effet : 11 s avec lui, alors que le black hole durait encore après 328 s sans lui.
 - Il garde l'IPAM juste pour la console, l'API et les sorties qui la lisent, comme `failover_commands`.
+
+Aucune des 18 pannes provoquées avec le Gratuitous ARP actif n'a eu besoin du conteneur : le risque qu'il couvre n'a été observé qu'en désactivant nous-mêmes le Gratuitous ARP. Nous n'avons pas vérifié si Scaleway garantit que le routeur suit le Gratuitous ARP. Si c'est garanti, le conteneur ne sert plus qu'à garder l'IPAM juste. Sinon, il est le seul chemin qui repose sur une API publique.
 
 Il coûte une instance toujours chaude, deux clés IAM et un appel HTTPS sans vérification du nom.
 

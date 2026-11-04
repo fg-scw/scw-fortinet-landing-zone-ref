@@ -201,12 +201,14 @@ Le retour n'a fait perdre aucun ping. En `fr-par-1`, la route revient vers PGW a
 
 ## Ce que le conteneur apporte
 
-On le conserve. Dans les onze pannes ci-dessus, le Gratuitous ARP a rétabli le trafic entre T+4 et T+7 s et le conteneur a écrit l'IPAM entre T+8 et T+11 s : il n'a rien raccourci. Sa valeur tient aux cas où ce premier chemin manque.
+On le conserve comme assurance. Dans les onze pannes ci-dessus, le Gratuitous ARP a rétabli le trafic entre T+4 et T+7 s et le conteneur a écrit l'IPAM entre T+8 et T+11 s : il n'a rien raccourci. Sa valeur tient aux cas où ce premier chemin manque.
 
 - Il borne la coupure si le Gratuitous ARP ne fait pas son effet : 11 s au lieu d'un black hole sans fin. Ce comportement du routeur est mesuré ici, sans que nous ayons vérifié s'il est documenté, et le conteneur évite d'en dépendre seul.
 - Il garde l'IPAM juste pour la console, l'API et les sorties qui la lisent.
 
 Il ne réduit pas la coupure nominale. Une écriture fausse dans l'IPAM coupe toujours le hub jusqu'à la prochaine écriture : le conteneur écarte les appels périmés, pas un déplacement manuel vers le mauvais nœud.
+
+Aucune des 18 pannes provoquées avec le Gratuitous ARP actif n'a eu besoin du conteneur : le risque qu'il couvre n'a été observé qu'en désactivant nous-mêmes le Gratuitous ARP. Nous n'avons pas vérifié si Scaleway garantit que le routeur suit le Gratuitous ARP. Si c'est garanti, le conteneur ne sert plus qu'à garder l'IPAM juste. Sinon, il est le seul chemin qui repose sur une API publique.
 
 ## Comparaison avec les SDN Connectors
 
