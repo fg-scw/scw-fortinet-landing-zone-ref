@@ -31,6 +31,10 @@ terraform apply -replace='module.hub.terraform_data.fw_generation["fw1"]'   # l'
 
 Un nœud reconstruit revient en secondaire et le cluster ne rebascule pas. Il peut rester *out-of-sync* 5 à 6 minutes, le temps que le primaire mette à jour ses objets FortiGuard : attendez `in-sync` avant l'étape suivante. Pour changer de version, remplacez le `snapshot_id` d'un nœud, puis de l'autre, dans le même ordre.
 
+La nouvelle VM reprend la licence de l'ancienne, et FortiGuard peut la compter comme un doublon. Sur une reconstruction nœud par nœud, un des deux nœuds a reçu `code: 401`, puis `code: 200` 1 h 43 plus tard, mais il est resté à `1 CPU/1 allowed` et sans contrat, même après un redémarrage. Après une destruction complète et 104 minutes d'attente, les deux nœuds ont eu 32 CPU et leurs contrats dès le démarrage. Fortinet demande 90 minutes sans l'ancienne VM avant de recharger la licence, sinon un ticket TAC.
+
+Après chaque reconstruction, contrôlez `code` et `dup` dans `diagnose hardware sysinfo vm full`, et `VM Resources` dans `get system status`. `License Status: Valid` ne suffit pas.
+
 ## Après la réparation d'un firewall
 
 Un nœud qui a perdu ses ports revient secondaire avec ses link monitors figés à `dead`. À sa prochaine prise de rôle, ses routes par défaut tomberaient 2 s et les sessions Internet disparaîtraient du firewall ([détail](HA-CONTENEUR.md#silence-des-sessions-internet)). Une fois le nœud in-sync, remettez-les à zéro, sur ce secondaire uniquement :
