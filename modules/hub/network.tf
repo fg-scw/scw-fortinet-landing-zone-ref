@@ -207,8 +207,8 @@ resource "scaleway_vpc_route" "hub_to_egress" {
 
 # Every packet entering the hub from a peer goes to the active firewall first.
 # The spoke supernet rule covers all present and future spokes. The next hop is the
-# Hub data VIP: an IPAM reservation on the real NIC MAC of the FGCP primary,
-# moved by the failover container, so the rules themselves never change.
+# Hub data VIP: a Gratuitous ARP or the failover container moves it to the
+# FGCP primary, so the rules themselves never change.
 resource "scaleway_vpc_ingress_rule" "to_firewall" {
   for_each = toset(concat([var.spoke_supernet, var.cidrs.egress], local.vpn_cidrs))
 
