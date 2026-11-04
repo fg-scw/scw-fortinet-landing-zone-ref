@@ -95,7 +95,6 @@ resource "scaleway_edge_services_backend_stage" "this" {
       lb_config {
         id          = lb_backend_config.value.id
         frontend_id = scaleway_lb_frontend.this[lb_backend_config.key].id
-        zone        = lb_backend_config.key
         is_ssl      = false
         domain_name = var.config.edge.fqdns[0]
       }
