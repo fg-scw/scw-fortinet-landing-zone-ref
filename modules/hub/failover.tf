@@ -1,6 +1,6 @@
-# The data VIPs follow the FGCP primary in IPAM (the VPC router uses the
-# IPAM MAC of the hub VIP, never a gratuitous ARP). The node that becomes
-# primary calls a private Serverless Container on the hub Private Network
+# The data VIPs follow the FGCP primary in IPAM. The VPC router takes the next
+# hop of the hub VIP from its last writer: FGCP's Gratuitous ARP moves it first,
+# this IPAM write is the second path. The node that becomes primary calls a private Serverless Container on the hub Private Network
 # (automation stitch, pushed with the policy), which moves both VIPs to its
 # NICs with an IAM key limited to IPAM in this project. The firewall only
 # holds a key that can call it. Nothing in the failover path crosses the

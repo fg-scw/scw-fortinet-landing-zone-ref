@@ -1,12 +1,14 @@
 """Moves the firewall data VIPs in IPAM to the real NIC MACs of a node.
 
-The VPC router sends the hub ingress traffic to the MAC of the IPAM
-reservation of the hub VIP, never to a gratuitous ARP: the VIPs must follow
-the FGCP primary. The automation stitch of the node that just became primary
-POSTs {"node": "<hostname>"}; every call is idempotent, so repeated or late
-calls are harmless. It runs in a private Serverless Container reached on its
-private endpoint in the hub Private Network: the platform checks the token
-(X-Auth-Token) before this code runs.
+The VPC router takes the next hop of the hub VIP from its last writer: a
+Gratuitous ARP or this IPAM reservation. FGCP's Gratuitous ARP moves the
+traffic first; this function keeps IPAM right and is a second path if that ARP
+has no effect. The automation stitch of the node that just became primary
+POSTs {"node": "<hostname>"}. A repeated call is harmless, but this code does
+not know who is primary: a call naming a secondary black-holes the hub until
+the next hourly reconcile. It runs in a private Serverless Container reached
+on its private endpoint in the hub Private Network: the platform checks the
+token (X-Auth-Token) before this code runs.
 
 Environment: REGION, NODES (JSON {hostname: [{ip_id, mac, name}, ...]}, hub
 VIP first), secret SCW_SECRET_KEY (IAM application limited to IPAM).
@@ -64,7 +66,7 @@ def handle(event, context):
     try:
         for vip in vips:
             result[f'{vip["ip_id"]} -> {vip["mac"]}'] = follow(vip, os.environ["REGION"])
-    except Exception as e:  # logged for Cockpit, the stitch retries
+    except Exception as e:  # logged for Cockpit, the hourly reconcile retries
         print(json.dumps({"node": node, "done": result, "error": str(e)}))
         return {"statusCode": 502, "body": json.dumps({"done": result, "error": str(e)})}
     print(json.dumps({"node": node, "done": result}))

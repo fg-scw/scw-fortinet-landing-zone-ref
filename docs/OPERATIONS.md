@@ -78,7 +78,7 @@ Sur le projet du hub, la même erreur vient du nettoyage du conteneur de bascule
 | `stdio forwarding failed` en SSH vers un firewall | il démarre encore | attendre quelques minutes |
 | `REMOTE HOST IDENTIFICATION HAS CHANGED` vers un firewall ou un bastion | nœud reconstruit, ou nouvelle Public Gateway sur l'IP d'une ancienne | `ssh-keygen -R '[<ip-pgw>]:<port>'` pour le bastion, `ssh-keygen -R <ip-mgmt>` pour le nœud |
 | `Connection timed out during banner exchange` vers une VM | port fermé par la NACL du spoke | ajouter une règle `nacl_inbound`, puis appliquer |
-| plus de trafic via le hub après une bascule | VIP restées sur l'ancien primaire, l'appel au conteneur a échoué | lancer la ligne du primaire de `failover_commands` |
+| plus de trafic via le hub, IPAM de la VIP Hub sur le secondaire | le routeur VPC suit la dernière écriture : appel tardif ou déplacement manuel vers le mauvais nœud | lancer la ligne du primaire de `failover_commands` ; sinon, le rattrapage de la minute 7 corrige |
 | `fortigate.sh ready` ou le push de politique échoue en SSH | poste hors de `admin_cidrs`, ou `ssh` ou `scw` manquant | corriger, puis relancer l'apply |
 | `admin key never accepted: user data not applied` | le disque avait déjà démarré, ou l'Instance a une IP publique (pas de CD-ROM NoCloud) | repartir du snapshot d'usine, sans IP publique ; en console série, `diagnose debug cloudinit show` |
 | le plan refuse `policy.yaml` | syntaxe, alias inconnu, description en double ou contenant `<`, `>` ou `&` | corriger `policy.yaml` |
@@ -96,5 +96,6 @@ Sur le projet du hub, la même erreur vient du nettoyage du conteneur de bascule
 - Redis, MongoDB, Kafka, OpenSearch et ClickHouse ne suivent pas le routage VPC : ils ne sont joignables que depuis leur Private Network.
 - Le trafic d'Edge Services vers les Load Balancers est en HTTP.
 - Scaleway n'expose aucun timer BGP, BFD ou DPD : la vitesse de bascule entre les deux tunnels VPN se règle sur la passerelle on-prem.
+- Activer `vpn` sur un cluster déjà déployé ne pose pas la route on-prem sur les firewalls : la plateforme n'est lue qu'au premier démarrage. Ajoutez-la sur chaque nœud (`router.static` ne se synchronise pas), `config router static` vers `169.254.169.254` par `port3`, ou reconstruisez les nœuds. Sans elle, un nœud primaire ne renvoie pas le trafic vers l'on-prem.
 - Les VM déjà démarrées reçoivent les routes d'un nouveau spoke par DHCP en une heure au plus.
 - Une organisation a 512 connecteurs de peering : 127 spokes sans bypass, 85 avec.

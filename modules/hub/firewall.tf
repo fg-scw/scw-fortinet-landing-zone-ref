@@ -18,7 +18,8 @@
 # nodes carry the data VIPs as their hub and egress interface addresses
 # (interfaces are not synchronised, vdom-exception); only the primary
 # answers. The VIPs are also IPAM reservations on the real NIC MAC of the
-# primary, which the VPC router uses for the hub ingress rules (failover.tf).
+# primary: the VPC router takes the next hop of the hub ingress rules from a
+# Gratuitous ARP or from a write to this reservation (failover.tf).
 
 locals {
   # Ingress rule next hop (hub) and SNAT source to the PGWs (egress).

@@ -105,7 +105,16 @@ Mesures du 3 novembre 2026 (FortiOS 8.0.2, deux spokes dans deux projets, ping t
 | Perte brutale du primaire | 5,9 s | 5,9 s | 5 |
 | Retour de l'ancien primaire | 0 s | 0 s | 0 |
 
-Une perte brutale coûte la détection FGCP, 20 heartbeats manqués à 200 ms soit 4 s, puis le déplacement des deux VIP dans l'IPAM, environ 2 s. Le trafic reprend sans intervention.
+Une perte brutale coûte la détection FGCP, 20 heartbeats manqués à 200 ms soit 4 s, puis 1 à 3 s avant la reprise : le Gratuitous ARP de FGCP déplace le next hop sans attendre l'IPAM. Le trafic reprend sans intervention.
+
+Mesures du 4 novembre 2026 sur `hub-spoke-multi-project`, avec le VPN et un Load Balancer sur le réseau Egress :
+
+| Scénario | Est-ouest | Internet | VPN | Requêtes LB perdues |
+|---|---|---|---|---|
+| Bascule commandée fw1 vers fw2 | 0 s | 0 s | 0 s | 0 |
+| Retour fw2 vers fw1 | 2,2 s | 2,2 s | 2,2 s | 1 |
+
+Le rôle de chaque mécanisme et les cas limites sont dans [docs/HA-CONTENEUR.md](docs/HA-CONTENEUR.md).
 
 ## Documentation
 
