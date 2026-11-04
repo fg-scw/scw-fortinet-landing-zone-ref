@@ -13,7 +13,7 @@ output "private_network_ids" {
   }
 }
 
-# Contract consumed by the spoke endpoints (modules/endpoint).
+# Consumed by modules/endpoint for the endpoints this spoke owns.
 output "endpoint_target" {
   value = {
     project_id         = scaleway_account_project.this.id
@@ -31,8 +31,7 @@ output "hybrid_bypass" {
   value = local.bypass
 }
 
-# Baseline security groups to set on the spoke Private Network interfaces:
-# security_group_ids.<pub|private>.<zone>.
+# Baseline security group IDs by tier and zone: security_group_ids.<pub|private>.<zone>.
 output "security_group_ids" {
   value = {
     for tier in ["pub", "private"] : tier => {

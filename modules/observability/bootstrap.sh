@@ -3,7 +3,7 @@
 # /var/lib/lz-obs.done exists. Needs ALLOY_VERSION (may be empty).
 set -eu
 
-md() { # metadata only answers from a source port < 1024; random, or TIME_WAIT
+md() { # Metadata answers only from a source port below 1024; a random one avoids TIME_WAIT clashes
   curl -fsS --max-time 10 --local-port "$(shuf -i 600-1000 -n1)-1023" "$@"
 }
 md_retry() {
@@ -12,7 +12,7 @@ md_retry() {
 }
 URL=http://169.254.42.42/user_data/lz_secrets
 
-# 1. Cockpit token: store it root-only, then remove it from the metadata.
+# 1. Store the Cockpit token root-only, then delete it from the metadata.
 mkdir -p /etc/alloy
 if [ ! -s /etc/alloy/cockpit.env ]; then
   umask 077
@@ -37,7 +37,7 @@ install -o root -g alloy -m 0640 /opt/lz-obs/config.alloy /etc/alloy/config.allo
 chown root:alloy /etc/alloy/cockpit.env
 chmod 0640 /etc/alloy/cockpit.env
 
-# Port 514 is privileged: the capability is simpler and safer than running as root.
+# Port 514 is privileged: CAP_NET_BIND_SERVICE binds it without running Alloy as root.
 mkdir -p /etc/systemd/system/alloy.service.d
 cat > /etc/systemd/system/alloy.service.d/lz-obs.conf <<'UNIT'
 [Service]
@@ -51,7 +51,7 @@ systemctl daemon-reload
 systemctl enable alloy
 systemctl restart alloy
 
-# 3. Firewall last, once the install no longer needs new inbound paths.
+# 3. Firewall last, once the install needs no new inbound paths.
 nft -c -f /opt/lz-obs/nftables.conf
 install -m 0644 /opt/lz-obs/nftables.conf /etc/nftables.conf
 systemctl enable nftables

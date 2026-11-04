@@ -29,8 +29,8 @@ variable "config" {
       protocol         = optional(string, "http")
       health_check_uri = optional(string) # HTTP health check; TCP when null
     })
-    # Edge Services: managed TLS certificate and WAF in front of the LBs,
-    # which only accept Edge Services IPs. Required: no plain HTTP endpoint.
+    # Edge Services provides the managed TLS certificate and the WAF. Required,
+    # so no endpoint is plain HTTP.
     edge = object({
       fqdns          = list(string)
       waf_mode       = optional(string, "enable")

@@ -1,8 +1,6 @@
 locals {
-  # Optional customer policy (see policy.yaml.example). Absent, empty or fully
-  # commented: no custom policy. A syntax error must fail the plan, never
-  # silently push an empty policy to running firewalls (yamldecode rejects an
-  # empty document, hence the content check on the string).
+  # Optional policy (policy.yaml.example). Absent or fully commented means none.
+  # yamldecode fails on an empty document, hence the content check; syntax errors still fail the plan.
   policy_raw = fileexists(var.policy_file) ? file(var.policy_file) : ""
   policy     = yamldecode(length(regexall("(?m)^\\s*[^#\\s]", local.policy_raw)) > 0 ? local.policy_raw : "{}")
 
@@ -54,8 +52,8 @@ module "endpoint" {
   config             = each.value.config
 }
 
-# Optional syslog relay (firewalls -> Alloy -> Cockpit). Leave it off when the
-# customer has its own SIEM: put its collector in firewall.syslog instead.
+# Syslog relay (firewalls -> Alloy -> Cockpit). Disable it with a customer SIEM,
+# and set that collector in firewall.syslog instead.
 module "observability" {
   source = "./modules/observability"
   count  = var.observability ? 1 : 0

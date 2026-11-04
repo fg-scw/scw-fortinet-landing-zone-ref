@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# FortiGate checks and policy over SSH through a Public Gateway bastion, on
-# the management NIC of the node (no public IP on the firewalls). A node
-# configures itself at first boot from its cloud-init user data (firewall.tf).
-#   fortigate.sh ready    a new node: waits for its user data to be applied (admin key accepted)
-#                         and its licence, checks port <-> MAC (firewall.tf)
-#   fortigate.sh policy   policy and failover automation CLI on the FGCP
+# FortiGate checks and policy over SSH through a Public Gateway bastion, on the
+# management NIC (the firewalls have no public IP). A node configures itself at
+# first boot from its cloud-init user data (firewall.tf).
+#   fortigate.sh ready    waits for the user data (admin key accepted) and the license,
+#                         then checks port <-> MAC (firewall.tf)
+#   fortigate.sh policy   pushes the policy and failover automation CLI to the FGCP
 #                         primary, which syncs the secondary (policy.tf)
-# Inputs come from the environment, never argv (secrets):
+# Inputs come from the environment, never argv, since they carry secrets:
 #   ready:  FGT_HOST FGT_JUMP (bastion "bastion@<ip>:<port>") FGT_LICENSED (1|0)
 #           FGT_MACS ("port2=<mac> ...")
 #   policy: FGT_HOSTS ("<ip>=<bastion> ...", each node through the bastion of
@@ -16,11 +16,9 @@
 set -euo pipefail
 
 # Host keys: trust on first use, then pinned. Each node has its own
-# known_hosts on the runner; ready starts it afresh (a rebuilt node has
-# a new key on the same IP), every later connection must match it. One ssh
-# config per node carries the bastion. They live in a private per-user
-# directory, kept between runs (pinned keys), never under fixed names in a
-# shared /tmp.
+# known_hosts on the runner. ready clears it, since a rebuilt node keeps its IP
+# with a new key. Later connections must match. Files live in a private per-user
+# directory across runs, never under fixed names in a shared /tmp.
 umask 077
 STATE=${FGT_STATE_DIR:-$HOME/.cache/landing-zone-fortigate}
 mkdir -p "$STATE"
@@ -52,12 +50,10 @@ Host *
 EOC
   echo "$f"
 }
-# What FortiOS prints when a CLI line is refused; the session goes on, so the
-# output is the only way to notice.
+# FortiOS output for a refused CLI line. The session goes on, so this output is the only signal.
 CLI_ERRORS='Command fail|Unknown action|command parse error|value parse error|entry not found|node_check_object fail|object check operator error|Attribute .* MUST be set'
 
-# Terraform hides the output of a provisioner that gets secrets: also keep
-# a log per node on the runner.
+# Terraform hides the output of provisioners handling secrets, so keep a log per node on the runner.
 log() { echo "$(date +%T) fortigate.sh [${FGT_HOST:-policy}] $*" | tee -a "$STATE/${FGT_HOST:-policy}.log" >&2; }
 
 cli() { # $1 host; CLI on stdin; prints the output, fails on a refused line
@@ -70,11 +66,9 @@ cli() { # $1 host; CLI on stdin; prints the output, fails on a refused line
   fi
 }
 
-# grep after cli reads all its input: with pipefail, grep -q would stop at the
-# first match and fail the pipeline on the writer's SIGPIPE.
+# grep must read all cli output (no -q): with pipefail, an early exit fails the pipeline on SIGPIPE.
 
-# Through the bastion, ConnectTimeout only bounds the bastion leg: a call to
-# a rebooting node can hang, so it gets its own deadline.
+# ConnectTimeout only bounds the bastion leg: a rebooting node can hang, hence the deadline.
 status() { # $1 host; `get system status`, empty until the admin key is accepted
   local f="$STATE/status-$1"
   : >"$f"
@@ -97,13 +91,12 @@ check_macs() { # $1 host; FGT_MACS "port2=<mac> ..."
   done
 }
 
-# Standalone is not primary: the pair never formed a cluster.
+# A standalone node is never primary: the pair did not form a cluster.
 is_primary() { cli "$1" <<<'get system status' | grep -E 'Current HA mode: a-p, (primary|master)' >/dev/null; }
 
 ready() {
   local h=$FGT_HOST
-  # A rebuilt node has a new host key on the same IP, and so has a new
-  # Public Gateway that got the public IP of an old one.
+  # A rebuilt node and its rebuilt Public Gateway (which may reuse an old public IP) present new host keys.
   rm -f "$(kh "$h")"
   local j b; j=$(jump "$h"); b=${j%:*}
   ssh-keygen -R "[${b#*@}]:${j##*:}" -f "$(kh bastion)" >/dev/null 2>&1 || true
@@ -125,7 +118,7 @@ ready() {
     status "$h" | grep 'License Status: Valid' >/dev/null || { log "licence still not valid"; return 1; }
   fi
   check_macs "$h"
-  # The cloud-init log holds the user data CLI, passwords included.
+  # Clear the cloud-init log, which holds the user data CLI and its passwords.
   cli "$h" <<<'diagnose debug cloudinit clear' >/dev/null
   log "done"
 }
@@ -138,9 +131,8 @@ primaries() { # the nodes of FGT_HOSTS that say they are the FGCP primary
 
 policy() {
   local primary=
-  # Right after a rebuilt node joins, the cluster re-elects and the primary
-  # does not answer for a while: wait for exactly one. Two means the pair
-  # never formed a cluster: a push would reach one node only.
+  # A rebuilt node rejoining triggers a re-election, so the primary may not answer for a while.
+  # Wait for exactly one: with two, the pair never formed a cluster and a push reaches one node only.
   for _ in $(seq 20); do
     primary=$(primaries)
     [ "$(wc -l <<<"$primary")" -eq 1 ] && [ -n "$primary" ] && break
@@ -151,16 +143,16 @@ policy() {
   FGT_HOST=$primary
   log "pushing policy"
   base64 -d <<<"$FGT_CONFIG" | cli "$primary" >/dev/null
-  # Policy ids are positions 1..N: drop the ids the new policy no longer has,
-  # only once it is in place, so a failed push never leaves a partial policy.
+  # Policy ids are positions 1..N. Delete the ids the new policy no longer has, after the push,
+  # so a failed push never leaves a partial policy.
   local stale
   stale=$(cli "$primary" <<<'show firewall policy' | sed -n 's/^ *edit \([0-9]*\)$/\1/p' |
     grep -v -x -F -f <(tr ' ' '\n' <<<"$FGT_POLICY_IDS") || true)
   if [ -n "$stale" ]; then
     { echo 'config firewall policy'; for i in $stale; do echo "delete $i"; done; echo end; } | cli "$primary" >/dev/null
   fi
-  # The first election precedes the automation: align the data VIPs now,
-  # and again once a container redeployed with new NIC MACs is live.
+  # The automation starts after the first election: align the data VIPs now, and again once
+  # a redeployed container with new NIC MACs is live.
   cli "$primary" <<<'diagnose automation test lz-ipam-reconcile' >/dev/null
   sleep 30
   cli "$primary" <<<'diagnose automation test lz-ipam-reconcile' >/dev/null

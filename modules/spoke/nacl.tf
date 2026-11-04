@@ -1,17 +1,15 @@
-# Hub-imposed Network ACLs (the spoke group only has VPCReadOnly). NACLs are
-# stateless and default-deny: the spoke may open any connection outwards, Pub may
-# open any connection to Private, and from outside the spoke only nacl_inbound
-# (var.spokes) and the stateless return rules let traffic in. The return rules
-# accept TCP/UDP from anywhere to ports 32768-65535, so a service listening on
-# an ephemeral port is reachable from outside: what comes through the Hub is
-# still filtered by the firewall; only the Interlink bypass and Pub -> Private
-# are not. Traffic inside a Private Network (e.g. LB -> backends in Pub) is
-# never filtered.
+# Hub-imposed NACLs (the spoke group only has VPCReadOnly). They are stateless and
+# default-deny. Spoke outbound is open, and inbound is limited to nacl_inbound
+# (var.spokes) plus the return rules. The return rules accept TCP/UDP from anywhere
+# on ports 32768-65535, so a service on an ephemeral port is reachable from outside.
+# Traffic routed through the Hub is still filtered by the firewall, but the Interlink
+# bypass and Pub to Private are not. Traffic inside a Private Network (e.g. LB to
+# backends in Pub) is never filtered.
 
 locals {
   any = "0.0.0.0/0"
 
-  # Replies to connections the spoke opened itself (Linux ephemeral range).
+  # Replies to connections the spoke opened (Linux ephemeral range).
   nacl_return = [for dst in [local.pub_cidr, local.private_cidr] : [
     { protocol = "TCP", source = local.any, destination = dst, port = 32768, port_end = 65535, description = "Stateless return TCP" },
     { protocol = "UDP", source = local.any, destination = dst, port = 32768, port_end = 65535, description = "Stateless return UDP" },
@@ -62,8 +60,8 @@ resource "scaleway_vpc_acl" "this" {
   is_ipv6        = false
   default_policy = "drop"
 
-  # On the real API a 0-0 range means "port 0", not "any port", for every
-  # protocol carrying ports (ANY included): "all ports" is spelled 0-65535.
+  # The API reads a 0-0 range as port 0, not any port, for every protocol with ports
+  # (ANY included). All ports is spelled 0-65535.
   dynamic "rules" {
     for_each = local.nacl[each.key]
     content {

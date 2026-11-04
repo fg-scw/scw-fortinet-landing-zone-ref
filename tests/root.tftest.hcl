@@ -1,6 +1,6 @@
-# terraform test - offline, no Scaleway API call: checks the wiring of the root.
+# Offline plan checks of the root wiring, no Scaleway API call.
 mock_provider "scaleway" {
-  # The provider validates ID formats, so mocks need realistic IDs.
+  # The provider validates ID formats, so mock IDs must look realistic.
   mock_resource "scaleway_account_project" {
     defaults = { id = "44444444-4444-4444-4444-444444444444" }
   }
@@ -103,8 +103,8 @@ run "endpoints_need_edge_plan" {
   expect_failures = [var.endpoints]
 }
 
-# A customer policy file must plan (a conditional on the decoded YAML used to
-# fail with inconsistent types).
+# Covers a customer policy file. A conditional on the decoded YAML fails with
+# inconsistent types, hence the string check in main.tf.
 run "policy_file" {
   command = plan
 

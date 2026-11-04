@@ -1,18 +1,16 @@
-# One spoke: its own project, a Pub VPC peered to the hub and a
-# Private VPC behind it. Every flow leaving the spoke is inspected by the central
-# firewall; Private may bypass it only towards on-prem over Interlink.
+# One spoke: a project with a Pub VPC peered to the hub and a Private VPC behind it.
+# Every flow leaving the spoke is inspected by the central firewall, except Private
+# to on-prem over Interlink (hybrid_bypass). NACLs for both VPCs are in nacl.tf.
 #
 #   Private --peering--> Pub (transitive) --peering--> Hub (ingress rule -> hub data VIP)
 #   Private --peering--> Hybrid (Interlink, bypass)            [hybrid_bypass]
-#
-# Network ACLs imposed on both VPCs live in nacl.tf.
 
 locals {
   spoke  = var.registry[var.name]
   prefix = "spoke-${var.name}"
   tags   = ["landing-zone", "spoke:${var.name}"]
 
-  # Fixed slot sizes: /22 Pub and /21 Private per spoke, carved from the hub pools.
+  # Fixed slots: a /22 Pub and a /21 Private per spoke, carved from the hub pools.
   pub_cidr     = cidrsubnet(var.hub.spoke_pools.pub, 22 - tonumber(split("/", var.hub.spoke_pools.pub)[1]), local.spoke.index)
   private_cidr = cidrsubnet(var.hub.spoke_pools.private, 21 - tonumber(split("/", var.hub.spoke_pools.private)[1]), local.spoke.index)
 
@@ -23,8 +21,6 @@ resource "scaleway_account_project" "this" {
   name        = local.prefix
   description = "Landing zone spoke ${var.name}"
 }
-
-# --- VPCs -------------------------------------------------------------------
 
 resource "scaleway_vpc" "pub" {
   name                             = "${local.prefix}-vpc-pub"
@@ -60,8 +56,6 @@ resource "scaleway_vpc_private_network" "private" {
   tags                             = local.tags
   ipv4_subnet { subnet = local.private_cidr }
 }
-
-# --- Peering connectors (one per side) ---------------------------------------
 
 resource "scaleway_vpc_connector" "pub_to_hub" {
   name          = "${local.prefix}-pub-to-hub"
@@ -107,9 +101,8 @@ resource "scaleway_vpc_connector" "hybrid_to_private" {
   tags          = local.tags
 }
 
-# --- Routes -----------------------------------------------------------------
-# The hub needs no per-spoke ingress rule: the hub rule on the spoke supernet already
-# sends every spoke source to the hub data VIP (active firewall).
+# No per-spoke ingress rule is needed on the hub: its rule for the spoke supernet
+# already sends every spoke source to the hub data VIP (active firewall).
 
 resource "scaleway_vpc_route" "pub_default" {
   vpc_id                   = scaleway_vpc.pub.id
@@ -165,15 +158,13 @@ resource "scaleway_vpc_route" "hybrid_return" {
   tags                     = local.tags
 }
 
-# Per-project subscription required by Edge Services pipelines (endpoints).
+# Edge Services is subscribed per project. Endpoint pipelines require it.
 resource "scaleway_edge_services_plan" "this" {
   count = local.spoke.edge_services_plan == null ? 0 : 1
 
   name       = local.spoke.edge_services_plan
   project_id = scaleway_account_project.this.id
 }
-
-# --- IAM: spoke team manages workloads, never the network -----------------------
 
 resource "scaleway_iam_group" "this" {
   name                = local.prefix

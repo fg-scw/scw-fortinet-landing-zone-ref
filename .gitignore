@@ -4,7 +4,7 @@ tfplan
 *.tfstate.*
 crash.log
 .env
-# Lock files from local `terraform test` runs of the modules
+# Lock files created by terraform test in the modules
 modules/*/.terraform.lock.hcl
 
 # Secrets and local files: never commit
