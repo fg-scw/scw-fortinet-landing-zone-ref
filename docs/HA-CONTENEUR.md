@@ -108,7 +108,88 @@ Fw2 est restée arrêtée 3 h 01, avec l'IPAM sur sa carte absente et les deux a
 
 Toutes les pertes datent des 10 premières minutes. La cause de ces micro-coupures n'a pas été cherchée. Fw2 a rejoint le cluster 41 s après son démarrage, fw1 est resté primaire, et le retour de fw2 puis le déplacement de l'IPAM vers fw1 n'ont coûté aucun ping.
 
+## Panne d'un firewall vue des spokes
+
+Mesures du 4 novembre 2026 : `set status down` d'un coup sur les ports hub, egress et HA d'un nœud, réparation 90 à 370 s plus tard. La VM du spoke HR envoie 10 pings par seconde vers genomic et vers `1.1.1.1`, ouvre une connexion toutes les 200 ms environ vers les deux, et garde des sessions TCP longues : l'une vers genomic, les autres vers Internet. Deux sessions s'ouvrent aussi pendant la panne pour suivre ce qu'elles deviennent à la réparation. Sur les essais 1 à 7, une VM du réseau Pub du même spoke reçoit aussi un ping.
+
+| Essai | Survivant | Ping est-ouest | Ping Internet | Seconde coupure Internet | TCP est-ouest | Silence TCP Internet | IPAM | Après réparation |
+|---|---|---|---|---|---|---|---|---|
+| 1 | fw2 | 4,3 s | 4,2 s | aucune | 6,7 s | 2,9 s | T+9 s | fw2 reste primaire |
+| 2 | fw1 | 4,2 s | 4,2 s | 2,6 s | 6,8 s | 5 s puis 135 s | T+9 s | fw1 reste primaire |
+| 3 | fw2 | 4,3 s | 7,4 s | 3,4 s | 6,7 s | 8 s puis 73 s | T+10 s | failback vers fw1 |
+| 4 | fw2 | 4,2 s | 5,3 s | 2,3 s | 13,8 s | 7 s puis 121 s | T+9 à 11 s | fw2 reste primaire |
+| 5 | fw1 | 5,1 s | 5,1 s | 2,5 s | 6,7 s | 104 s d'un seul tenant | T+9 s | fw1 reste primaire |
+| 6 | fw2 | 4,2 s | 5,3 s | 2,8 s | 6,8 s | 6,8 s puis 117 s | T+10 s | fw2 reste primaire |
+| 7 | fw1 | 5,2 s | 5,2 s | 2,3 s | 13,7 s | 2,8 s | T+9 s | fw1 reste primaire |
+| 8 | fw2 | 4,1 s | 4,1 s | 3 s | 6,7 s | 3,4 s puis 81 s | T+9 s | fw2 reste primaire |
+| 9 | fw1 | 7,2 s | 7,2 s | 2,5 s | 13,5 s | 7,5 s puis 62 s | T+8 s | fw1 reste primaire |
+| 10, `failtime 20` | fw2 | 4,3 s | 7,4 s | 3 s | 6,7 s | 5 s puis 116 s | T+8 s | failback vers fw1 |
+| 11, `snat-route-change enable` | fw2 | 4,3 s | 5,3 s | 3,2 s | 6,8 s | 6,3 s puis 115 s | T+10 s | failback vers fw1 |
+
+Le trafic Pub ↔ Private du même spoke n'a perdu aucun paquet : il ne passe pas par le firewall. La panne et la réparation n'ont provoqué aucun reset. Les silences de 6,7 et 13,7 s des sessions est-ouest correspondent à des pas de retransmission TCP : le ping était revenu avant. Deux pannes du secondaire n'ont causé aucune perte, sur aucun flux.
+
+### Silence des sessions Internet
+
+Vers T+14 s, sur le nouveau primaire, les link monitors `pgw-a` et `pgw-b` retirent leurs routes en même temps, et les remettent 2 s plus tard. C'est la seconde coupure Internet : elle n'a lieu que sur le réseau Egress. Nous ne savons pas pourquoi les link monitors tombent, car le trafic Internet passait à ce moment-là.
+
+Les sessions Internet déjà ouvertes disparaissent alors du firewall. Sur l'essai 8, capturé des deux côtés :
+
+| Temps | Événement |
+|---|---|
+| T+14 s | les routes par défaut tombent |
+| T+16 s | la VM ne reçoit plus rien |
+| T+19 à T+56 s | quatre retransmissions du serveur arrivent sur `port5`, aucune ne sort sur `port3` |
+| vers T+30 et T+55 s | `diagnose sys session list` répond `total session: 0` |
+| T+74 s | le keepalive TCP de curl, 60 s après la dernière donnée, sort par `port5` |
+| vers T+81 s | la session existe de nouveau, recréée par ce paquet grâce au sloppy state |
+| T+97 s | la retransmission suivante du serveur passe, le flux reprend et rattrape son retard |
+
+Le silence dépend donc du keepalive du client :
+
+| Keepalive du client | Silence mesuré |
+|---|---|
+| 5 s | 5 à 26 s |
+| 60 s, le défaut de curl | 62 à 135 s |
+| aucun | 28 s, 137 s, et deux sessions non reprises quand nous avons arrêté le test, 3 à 4 min plus tard |
+
+Passer `failtime` à 20 (essai 10) ou activer `snat-route-change` (essai 11) ne change rien. Nous n'avons pas de correctif côté firewall. `update-static-route disable` pourrait garder les sessions, sans l'avoir testé, mais retirerait le repli vers l'autre Public Gateway dont dépend la perte d'une zone.
+
+Les essais 1 et 7 n'ont pas eu ce silence. L'essai 1 n'a pas eu de seconde coupure. L'essai 7, ralenti à 200 ko/s, l'a eue et nous n'expliquons pas la différence.
+
+Hors de toute bascule, à 12:56:18, le chemin Internet s'est coupé 3,5 s. Le link monitor `pgw-a` est passé `dead` 3 s plus tard et FortiOS a retiré la route vers cette Public Gateway. La session longue a reçu un reset du serveur. `pgw-a` est repassé `alive` 18 s après.
+
+### Réconciliation
+
+Le nœud revenu était in-sync au premier contrôle, 9 s après la remise des ports, à chaque essai. Les sessions ouvertes pendant la panne survivent à la réparation. Le rôle de primaire suit l'ordre FGCP, `override` étant désactivé :
+
+- Si l'uptime FGCP des nœuds diffère de plus de 300 s (`ha-uptime-diff-margin`), le plus ancien est primaire. Le nœud revenu compte depuis son retour : sur un cluster stable, il revient donc secondaire, sans coupure.
+- Sinon, la priorité tranche : fw1 (200) contre fw2 (100).
+
+Ces deux règles concordent avec les quinze retours mesurés, et FortiOS indique son motif dans `get system ha status`. Les failbacks des essais 3, 10 et 11 viennent de la cadence du test : fw2 était revenu moins de 300 s avant fw1. Ils ont coûté au plus 1,2 s en est-ouest, 4,3 s vers Internet et 8,4 s aux sessions TCP, sans reset. Le conteneur a replacé l'IPAM en 5 à 6 s.
+
+## Perte d'une zone, simulée
+
+Scaleway ne permet pas d'éteindre une zone. Nous coupons les ports hub, egress et HA du firewall de la zone, et nous posons sur le survivant une entrée ARP statique vers une MAC inexistante pour la Public Gateway de cette zone. L'Instance et la Public Gateway restent allumées, et la VM genomic reste joignable bien qu'elle soit en `fr-par-1`. Un essai par zone, le primaire étant chaque fois dans la zone perdue.
+
+| Mesure | `fr-par-1` perdue : fw1 et PGW a, préférée | `fr-par-2` perdue : fw2 et PGW b, de secours |
+|---|---|---|
+| Ping est-ouest | 5,1 s | 5 s |
+| Ping Internet | 16,4 s | 5 s, puis 3,1 s |
+| Nouvelles connexions est-ouest | 5 requêtes en échec | 4 requêtes en échec |
+| Nouvelles connexions Internet | 14 requêtes en échec | 8 requêtes en échec |
+| Session TCP est-ouest | conservée, 6,7 s | conservée, 6,7 s |
+| Sessions TCP Internet | 3 sur 3 coupées entre T+20 et T+32 s | conservées, silence de 6 à 137 s |
+| VIP dans l'IPAM | T+10 s | T+8 s |
+| IP publique de sortie | change | ne change pas |
+| Primaire après retour | fw2 | fw1 |
+
+En `fr-par-1`, le link monitor `pgw-a` déclare la Public Gateway morte, FortiOS bascule la route par défaut vers PGW b entre T+8 et T+15 s, et Internet revient à T+16,4 s. Les sessions déjà ouvertes meurent, car leur IP publique a changé.
+
+Le retour n'a fait perdre aucun ping. En `fr-par-1`, la route revient vers PGW a et la session ouverte pendant la perte, passée par PGW b, a été coupée quelques secondes plus tard. Le conteneur a fonctionné dans les deux cas, car rien dans ce test ne touchait son instance.
+
 ## Ce que le conteneur apporte
+
+On le conserve. Dans les onze pannes ci-dessus, le Gratuitous ARP a rétabli le trafic entre T+4 et T+7 s et le conteneur a écrit l'IPAM entre T+8 et T+11 s : il n'a rien raccourci. Sa valeur tient aux cas où ce premier chemin manque.
 
 - Il borne la coupure si le Gratuitous ARP ne fait pas son effet : 11 s au lieu d'un black hole sans fin. Ce comportement du routeur est mesuré ici, sans que nous ayons vérifié s'il est documenté, et le conteneur évite d'en dépendre seul.
 - Il garde l'IPAM juste pour la console, l'API et les sorties qui la lisent.
@@ -127,7 +208,8 @@ Une IP publique flexible est zonale : l'IP de `fr-par-1` ne s'attache pas à fw2
 
 ## Ce qui n'est pas prouvé
 
-- La perte brutale d'une zone : la carte existait encore dans tous les tests. Une Instance arrêtée proprement n'est pas une panne.
+- La perte réelle d'une zone : le test la simule, les cartes et les Instances existaient encore. Une Instance arrêtée proprement n'est pas une panne. Le conteneur n'a pas perdu son instance.
+- Pourquoi les link monitors du nouveau primaire tombent vers T+14 s, et un moyen de l'éviter.
 - Un appel tardif naturel vers un secondaire : l'envoi retardé est observé, mais vers un nœud alors primaire. Le refus est prouvé sur un appel rejoué.
 - Pourquoi l'appel du secondaire reste en attente, et pourquoi une seule des trois actions part.
 - La variante `hub-spoke-single-project` et Interlink. Interlink évite la VIP et demande un lien partenaire.

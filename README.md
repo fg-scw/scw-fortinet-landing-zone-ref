@@ -116,6 +116,50 @@ Mesures du 4 novembre 2026 sur `hub-spoke-multi-project`, avec le VPN et un Load
 
 Le rôle de chaque mécanisme et les cas limites sont dans [docs/HA-CONTENEUR.md](docs/HA-CONTENEUR.md).
 
+### Impact sur les spokes
+
+Le 4 novembre 2026, sur `hub-spoke-multi-project`, nous avons coupé d'un coup les ports hub, egress et HA d'un nœud : onze fois sur le primaire, dans les deux sens, et deux fois sur le secondaire. Une VM du spoke HR mesurait ses flux pendant ce temps. Le détail est dans [docs/HA-CONTENEUR.md](docs/HA-CONTENEUR.md#panne-dun-firewall-vue-des-spokes).
+
+| Flux depuis le spoke | Panne du primaire | Panne du secondaire |
+|---|---|---|
+| Pub ↔ Private du même spoke (peering direct, 7 essais) | 0 perte | 0 perte |
+| Ping est-ouest | coupure de 4,1 à 7,2 s | 0 perte |
+| Ping Internet | coupure de 4,1 à 7,4 s, puis une seconde de 2,3 à 3,4 s vers T+14 s (10 essais sur 11) | 0 perte |
+| Nouvelles connexions est-ouest | 4 à 7 requêtes en échec | 0 |
+| Nouvelles connexions Internet | 4 à 10 requêtes en échec | 0 |
+| Session TCP longue est-ouest | conservée, silence de 6,7 à 13,8 s | conservée, 0 s |
+| Session TCP longue Internet | conservée, silence de 2,8 à 8 s, puis de 62 à 135 s sur 9 essais | conservée, 0 s |
+
+Aucune intervention manuelle n'est nécessaire. Le nouveau primaire reprend le trafic entre T+4 et T+7 s par Gratuitous ARP, le conteneur déplace les VIP dans l'IPAM entre T+8 et T+11 s.
+
+Le long silence Internet vient du firewall. Vers T+14 s, les link monitors du nouveau primaire retirent et remettent les routes par défaut, et les sessions Internet disparaissent du firewall. Une session qui attend des données reste alors muette jusqu'à son prochain paquet sortant, par exemple un keepalive TCP. Avec un keepalive à 5 s, le silence tombe à 26 s au plus. Sans keepalive, la session peut ne jamais reprendre. Les applications qui gardent de longues sessions Internet doivent donc activer un keepalive court ou savoir se reconnecter.
+
+À la réparation, le nœud revenu était in-sync au premier contrôle, 9 s après, et il reprend le rôle de secondaire sans perte. Il ne reprend le rôle de primaire que si les deux nœuds ont subi une panne à moins de 300 s d'écart et que sa priorité est plus haute. Ce failback a eu lieu trois fois sur onze, avec une coupure d'au plus 1,2 s en est-ouest et 4,3 s vers Internet, les sessions restant ouvertes.
+
+### Perte d'une zone
+
+Scaleway ne permet pas d'éteindre une zone. Nous l'avons simulée en coupant le firewall de la zone et en rendant sa Public Gateway injoignable depuis le survivant. Un essai par zone, le primaire étant chaque fois dans la zone perdue :
+
+| Mesure | `fr-par-1` perdue (Public Gateway préférée) | `fr-par-2` perdue (Public Gateway de secours) |
+|---|---|---|
+| Ping est-ouest | 5,1 s | 5 s |
+| Ping Internet | 16,4 s | 5 s, puis 3,1 s |
+| Nouvelles connexions Internet | 14 requêtes en échec | 8 requêtes en échec |
+| Session TCP longue est-ouest | conservée, 6,7 s | conservée, 6,7 s |
+| Sessions TCP longues Internet | 3 sur 3 coupées, l'IP publique change | conservées, comme une panne du primaire |
+| VIP déplacées dans l'IPAM | T+10 s | T+8 s |
+
+Le trafic reprend seul sur le nœud et la Public Gateway de l'autre zone. Au retour de `fr-par-1`, la route revient vers sa Public Gateway : aucun ping perdu, mais la session Internet ouverte pendant la perte a été coupée à son tour, quelques secondes plus tard.
+
+### Ce que le conteneur apporte
+
+On le garde, sans en attendre une coupure plus courte : le Gratuitous ARP de FGCP déplace le trafic avant lui. Il sert à deux choses :
+
+- Il borne la coupure si le Gratuitous ARP reste sans effet : 11 s avec lui, alors que le black hole durait encore après 328 s sans lui.
+- Il garde l'IPAM juste pour la console, l'API et les sorties qui la lisent, comme `failover_commands`.
+
+Il coûte une instance toujours chaude, deux clés IAM et un appel HTTPS sans vérification du nom.
+
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) : flux, adressage, filtrage, administration, premier démarrage, bascule.
