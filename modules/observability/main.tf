@@ -1,12 +1,11 @@
-# Optional syslog relay: FortiGate -> VM in the egress Private Network ->
-# Grafana Alloy -> Scaleway Cockpit (Loki). No HA: if the relay is down, the
-# firewalls keep their logs locally.
+# Optional syslog relay: FortiGate -> VM in the egress Private Network -> Grafana Alloy
+# -> Scaleway Cockpit (Loki). No HA: when the relay is down, the firewalls keep logs locally.
 
 locals {
   ip      = cidrhost(var.egress_cidr, var.host)
   pgw_ips = [for h in var.pgw_hosts : cidrhost(var.egress_cidr, h)]
 
-  # push_url may or may not carry the Loki path depending on the provider.
+  # The provider's push_url may or may not include the Loki path.
   push_url = endswith(scaleway_cockpit_source.logs.push_url, "/loki/api/v1/push") ? scaleway_cockpit_source.logs.push_url : "${scaleway_cockpit_source.logs.push_url}/loki/api/v1/push"
 
   config_alloy = templatefile("${path.module}/config.alloy.tftpl", {
@@ -20,7 +19,7 @@ locals {
     senders = [var.egress_cidr, var.hub_cidr]
   })
 
-  # No secret in here: it is readable from the metadata by anything on the VM.
+  # No secret here: anything on the VM can read this key from the metadata.
   cloud_init = templatefile("${path.module}/cloud-init.yaml.tftpl", {
     ssh_keys      = [for k in var.admin_ssh_public_keys : trimspace(k)]
     bootstrap     = file("${path.module}/bootstrap.sh")
@@ -29,8 +28,6 @@ locals {
     alloy_version = var.alloy_version == null ? "''" : "'${var.alloy_version}'"
   })
 }
-
-# --- Cockpit: a logs data source and a token that can only write logs
 
 resource "scaleway_cockpit_source" "logs" {
   name           = "${var.name}-fortigate"
@@ -52,17 +49,16 @@ data "scaleway_cockpit_grafana" "this" {
   project_id = var.project_id
 }
 
-# --- Relay VM. It boots without a private NIC (so without metadata): the
-# cloud-init key is set after the NIC, then the VM reboots to read it.
+# The VM boots without a private NIC, hence without metadata. The cloud-init key is
+# set after the NIC, then the VM reboots to read it.
 
-# The cloud-init content runs once per instance: a new version recreates it.
+# Cloud-init runs once per instance, so a new content hash recreates the relay.
 resource "terraform_data" "generation" {
   input = sha256(local.cloud_init)
 }
 
-# Same filter as nftables, enforced by the hypervisor, on both NICs: an
-# Instance without a security group gets the project default one, which
-# then blocks the deletion of the project.
+# Same filter as nftables, enforced by the hypervisor on both NICs. Without a security
+# group, an Instance gets the project default one, which blocks project deletion.
 resource "scaleway_instance_security_group" "relay" {
   name                    = var.name
   project_id              = var.project_id
@@ -146,9 +142,8 @@ resource "scaleway_instance_user_data" "cloud_init" {
 
   depends_on = [scaleway_instance_private_nic.relay]
 
-  # The resource ID embeds the server ID, but the provider updates server_id
-  # in place: without this, a rebuilt relay leaves a stale ID that breaks
-  # every later plan ("instance_server ... is not found").
+  # The resource ID embeds the server ID, which the provider updates in place. Without this,
+  # a rebuilt relay leaves a stale ID that breaks every later plan ("instance_server ... is not found").
   lifecycle {
     replace_triggered_by = [scaleway_instance_server.relay]
   }
@@ -157,7 +152,7 @@ resource "scaleway_instance_user_data" "cloud_init" {
 resource "terraform_data" "reboot" {
   triggers_replace = [scaleway_instance_server.relay.id, scaleway_instance_user_data.cloud_init.value]
 
-  # Needs the scw CLI on the runner
+  # Requires the scw CLI on the runner.
   provisioner "local-exec" {
     command = "scw instance server reboot ${split("/", scaleway_instance_server.relay.id)[1]} zone=${var.zone} --wait"
   }

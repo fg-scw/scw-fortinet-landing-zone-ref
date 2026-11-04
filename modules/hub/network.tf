@@ -1,6 +1,5 @@
-# Hub project: Egress (Internet, VPN, hub LB/Edge), HA (firewall sync),
-# Hub (ingress rules -> firewall VIP), Hybrid (Interlink, uninspected) and
-# Mgmt (firewall management, isolated: reached through the PGW bastion).
+# Hub project VPCs: Egress, HA (firewall sync), Hub, Hybrid (Interlink, uninspected) and
+# Mgmt (firewall management, reached only through the PGW bastion).
 
 locals {
   spoke_pools = {
@@ -14,9 +13,9 @@ locals {
   project_id     = coalesce(var.project_id, one(scaleway_account_project.this[*].id))
   hub_vrouter_ip = var.hub_vrouter_ip
 
-  # One Public Gateway per firewall zone. Both firewalls prefer pgw "a" (fw1
-  # zone) so a firewall failover keeps the same PGW NAT state; "b" takes over
-  # only when "a" stops answering (FortiGate link monitor).
+  # One Public Gateway per firewall zone. Both firewalls prefer "a" (fw1 zone), so a
+  # failover keeps the same NAT state. "b" takes over only when "a" stops answering
+  # (FortiGate link monitor).
   pgw = {
     a = { zone = var.firewall.nodes.fw1.zone, ip = cidrhost(var.cidrs.egress, var.egress.pgw_hosts.a) }
     b = { zone = var.firewall.nodes.fw2.zone, ip = cidrhost(var.cidrs.egress, var.egress.pgw_hosts.b) }
@@ -59,7 +58,6 @@ resource "scaleway_vpc_private_network" "this" {
   ipv4_subnet { subnet = each.value }
 }
 
-# --- Egress Public Gateways: Internet exit and admin SSH bastion, one per zone
 
 resource "scaleway_iam_ssh_key" "admin" {
   for_each = toset(var.admin_ssh_public_keys)
@@ -112,8 +110,8 @@ resource "scaleway_vpc_gateway_network" "egress" {
   }
 }
 
-# The same gateways serve the management network: SSH bastion, and the
-# reserved HA management gateway of the node in their zone.
+# The same gateways also serve the management network, as SSH bastion and as the gateway
+# of the node in their zone.
 resource "scaleway_ipam_ip" "mgmt_pgw" {
   for_each = local.pgw
 
@@ -137,9 +135,8 @@ resource "scaleway_vpc_gateway_network" "mgmt" {
 }
 
 locals {
-  # fw1 sits in the zone of pgw "a", fw2 in the zone of pgw "b".
   fw_pgw = { fw1 = "a", fw2 = "b" }
-  # admin_direct_access: public port on the PGW -> port on the node.
+  # admin_direct_access: public PGW port to node port.
   admin_ports = { 2222 = 22, 8443 = 443 }
   bastion = {
     for k, p in local.fw_pgw : k =>
@@ -147,9 +144,8 @@ locals {
   }
 }
 
-# Optional direct admin access: each PGW forwards its public ports to the
-# management IP of the node in its zone. The firewall security group filters
-# the sources (admin_cidrs).
+# Optional direct admin access: each PGW forwards its public ports to the management IP of
+# the node in its zone. The firewall security group filters sources (admin_cidrs).
 resource "scaleway_vpc_public_gateway_pat_rule" "admin" {
   for_each = var.admin_direct_access ? { for x in setproduct(keys(local.fw_pgw), keys(local.admin_ports)) : "${x[0]}-${x[1]}" => { fw = x[0], port = x[1] } } : {}
 
@@ -163,7 +159,7 @@ resource "scaleway_vpc_public_gateway_pat_rule" "admin" {
   depends_on = [scaleway_vpc_gateway_network.mgmt]
 }
 
-# Per-project subscription required by Edge Services pipelines (endpoints).
+# Edge Services pipelines of the endpoints need a subscription per project.
 resource "scaleway_edge_services_plan" "this" {
   count = var.edge_services_plan == null ? 0 : 1
 
@@ -171,7 +167,6 @@ resource "scaleway_edge_services_plan" "this" {
   project_id = local.project_id
 }
 
-# --- Egress <-> Hub peering: on-prem (VPN) and hub services reach the spokes ---
 
 resource "scaleway_vpc_connector" "egress_to_hub" {
   name          = "${var.name}-egress-to-hub"
@@ -205,10 +200,9 @@ resource "scaleway_vpc_route" "hub_to_egress" {
   tags                     = var.tags
 }
 
-# Every packet entering the hub from a peer goes to the active firewall first.
-# The spoke supernet rule covers all present and future spokes. The next hop is the
-# Hub data VIP: a Gratuitous ARP or the failover container moves it to the
-# FGCP primary, so the rules themselves never change.
+# Every packet entering the hub from a peer goes to the active firewall. The next hop is the
+# hub data VIP, which the Gratuitous ARP or the failover container moves to the FGCP primary,
+# so these rules never change. The spoke supernet rule covers future spokes too.
 resource "scaleway_vpc_ingress_rule" "to_firewall" {
   for_each = toset(concat([var.spoke_supernet, var.cidrs.egress], local.vpn_cidrs))
 

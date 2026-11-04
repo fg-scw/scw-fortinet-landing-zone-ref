@@ -1,13 +1,12 @@
-# Baseline security groups, one per tier and zone, for the spoke workloads to set
-# on their Private Network interfaces (output security_group_ids). Stateful
-# and enforced by the hypervisor, they add what the stateless NACLs cannot:
-# no service on an ephemeral port is reachable from outside the spoke, and the
-# Private Network itself can be closed (intra_pn: false). Sources come from
-# var.spokes, like the NACLs. Anyone with InstancesFullAccess on the
-# project can edit or detach them: the NACLs stay the guardrail. Instances only:
-# Kapsule nodes, Load Balancers and managed databases rely on the NACLs.
-# A security group on a private NIC also disables IPv6 autoconfiguration on
-# it (the landing zone is IPv4).
+# Baseline security groups, one per tier and zone, for workloads to set on their
+# Private Network interfaces (output security_group_ids). Stateful and enforced by
+# the hypervisor, so no service on an ephemeral port is reachable from outside the
+# spoke. intra_pn: false closes the Private Network itself. Sources come from
+# var.spokes, like the NACLs. Anyone with InstancesFullAccess on the project can edit
+# or detach these groups, so the NACLs remain the guardrail. Only instances are
+# covered: Kapsule nodes, Load Balancers and managed databases rely on the NACLs.
+# A security group on a private NIC also disables IPv6 autoconfiguration (the
+# landing zone is IPv4).
 
 locals {
   sg_inbound = {
@@ -40,7 +39,7 @@ resource "scaleway_instance_security_group" "baseline" {
   outbound_default_policy = "accept"
   tags                    = local.tags
 
-  # As the NACLs: ICMP from anywhere (path MTU discovery, diagnostics).
+  # ICMP from anywhere, as in the NACLs (path MTU discovery, diagnostics).
   inbound_rule {
     action   = "accept"
     protocol = "ICMP"

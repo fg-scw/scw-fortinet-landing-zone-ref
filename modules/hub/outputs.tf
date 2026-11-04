@@ -2,7 +2,7 @@ output "project_id" {
   value = local.project_id
 }
 
-# Contract consumed by every spoke module.
+# Consumed by every spoke module.
 output "spoke_contract" {
   description = "Everything a spoke needs to attach itself to the hub and the hybrid VPC."
   value = {
@@ -11,14 +11,14 @@ output "spoke_contract" {
     hybrid_vpc_id   = scaleway_vpc.this["hybrid"].id
     spoke_pools     = local.spoke_pools
     interlink_cidrs = local.interlink_cidrs
-    # Zones of the spoke baseline security groups (those of the firewalls).
+    # Zones of the spoke baseline security groups: the firewall zones.
     zones = sort(distinct([for n in values(var.firewall.nodes) : n.zone]))
   }
   # Spoke endpoints use the Edge Services plan of the hub project.
   depends_on = [scaleway_edge_services_plan.this]
 }
 
-# Contract consumed by the hub endpoints (LB / Edge Services in Egress).
+# Consumed by the hub endpoints (LBs and Edge Services in Egress).
 output "endpoint_target" {
   value = {
     project_id         = local.project_id
@@ -28,7 +28,7 @@ output "endpoint_target" {
   depends_on = [scaleway_edge_services_plan.this]
 }
 
-# Contract consumed by the optional syslog relay (modules/observability).
+# Consumed by the optional syslog relay (modules/observability).
 output "observability_target" {
   value = {
     name               = "${var.name}-obs"
@@ -39,7 +39,7 @@ output "observability_target" {
     egress_cidr        = var.cidrs.egress
     hub_cidr           = var.cidrs.hub
     pgw_hosts          = values(var.egress.pgw_hosts)
-    # Host numbers already used in the egress network (PGWs, VIPs, firewalls).
+    # Host numbers taken in the egress network: PGWs, VIPs, firewalls.
     reserved_hosts = distinct(concat(values(var.egress.pgw_hosts), values(var.firewall.hosts)))
     bastion        = local.bastion.fw1
   }

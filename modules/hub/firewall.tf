@@ -1,25 +1,17 @@
 # FortiGate-VM FGCP active-passive pair, one node per zone, no public IP.
+# Nodes configure themselves from cloud-init user data, which Scaleway passes on a NoCloud
+# CD-ROM for an Instance without public IP. FortiOS (7.4.5+, 7.6.0+) reads it at the first
+# boot of a disk only, so a node is rebuilt, never reconfigured in place.
+# Management is port2, behind the PGW bastion. port1, the public NIC, has no address.
 #
-# Each node boots a fresh volume of the factory FortiOS image and configures
-# itself from its cloud-init user data: licence, admin account, platform CLI.
-# Scaleway hands the user data of an Instance without public IP over a NoCloud
-# CD-ROM, and FortiOS (7.4.5+, 7.6.0+) reads it at the first boot of a disk
-# only. So a node is rebuilt, never reconfigured in place. Management is port2,
-# behind the PGW bastion; port1, the public NIC, has no address.
+# The egress VIP is a /32 and the PGWs are on-link gateways. A connected /24 would send
+# replies to the other egress hosts out of the egress leg, and FortiOS drops those
+# (reply interface differs from ingress interface).
 #
-# The egress leg holds the egress VIP as a /32 and reaches the PGWs as
-# on-link gateways: the other egress hosts (PGW bastion, LBs, relay) reach
-# the spokes through the hub, and their replies must go back that way too. A
-# connected /24 on the egress leg would send those replies out of it, which
-# FortiOS drops (reply interface != ingress interface).
-#
-# Scaleway hypervisors only accept a NIC's own MAC: FGCP runs with a unicast
-# heartbeat, which keeps the real NIC MACs (no 00:09:0f virtual MAC). Both
-# nodes carry the data VIPs as their hub and egress interface addresses
-# (interfaces are not synchronised, vdom-exception); only the primary
-# answers. The VIPs are also IPAM reservations on the real NIC MAC of the
-# primary: the VPC router takes the next hop of the hub ingress rules from a
-# Gratuitous ARP or from a write to this reservation (failover.tf).
+# Scaleway hypervisors accept only a NIC's own MAC, so FGCP runs a unicast heartbeat and
+# keeps the real NIC MACs. Both nodes configure the data VIPs on their interfaces (not
+# synchronised), and only the primary answers. The VIPs are also IPAM reservations on the
+# primary's real NIC MAC: the VPC router follows them (failover.tf).
 
 locals {
   # Ingress rule next hop (hub) and SNAT source to the PGWs (egress).
@@ -31,9 +23,8 @@ locals {
   fw_peer      = { fw1 = "fw2", fw2 = "fw1" }
   fw_nic_order = ["mgmt", "hub", "sync", "egress"]
 
-  # FortiOS names ports by PCI order: port1 is the public NIC, the private
-  # NICs follow in attachment order. fortigate.sh checks every MAC against
-  # this mapping once the node is up, before any policy push.
+  # FortiOS names ports in PCI order (port1 is the public NIC). fortigate.sh checks each
+  # MAC against this map once the node is up, before any policy push.
   fw_if = { mgmt = "port2", hub = "port3", sync = "port4", egress = "port5" }
 
   fw = {
@@ -53,22 +44,20 @@ locals {
     }
   ]...)
 
-  # Never sent to the Internet by the [EGRESS] policy: RFC1918 plus every
-  # range of the landing zone and of the customer.
+  # Never sent to the Internet by the [EGRESS] policy: RFC1918 and all landing zone and customer ranges.
   internal_nets = distinct(concat(
     ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"],
     [var.spoke_supernet], values(var.cidrs), local.vpn_cidrs, local.interlink_cidrs,
   ))
 
-  # The syslog relay of modules/observability, unless the list has it already.
+  # Syslog relay of modules/observability, unless firewall.syslog already lists it.
   relay_ip = var.syslog_relay_host == null ? null : cidrhost(var.cidrs.egress, var.syslog_relay_host)
   syslog = concat(var.firewall.syslog, local.relay_ip == null || contains([for l in var.firewall.syslog : l.host], coalesce(local.relay_ip, "-")) ? [] : [
     { host = local.relay_ip, port = 514, transport = "udp" },
   ])
 
-  # Per-node platform CLI (interfaces, routes, HA). Interfaces and static
-  # routes are excluded from FGCP sync, so both nodes get this, at creation.
-  # No secret in it: it is shown in the plan.
+  # Per-node platform CLI. FGCP does not sync interfaces or static routes, so each node
+  # gets its own at creation. No secret in it: it is shown in the plan.
   fw_platform = {
     for k, n in local.fw : k => templatefile("${path.module}/fortigate-platform.conf.tftpl", {
       hostname     = "${var.name}-${k}"
@@ -94,8 +83,7 @@ locals {
     })
   }
 
-  # The user data of each node: platform CLI, admin account, licence.
-  # Secrets: readable through the Instance API by the project's readers.
+  # Holds the license and admin credentials: readable through the Instance API by project readers.
   fw_user_data = {
     for k, n in local.fw : k => templatefile("${path.module}/fortigate-user-data.yaml.tftpl", {
       platform       = replace(local.fw_platform[k], "@@HA_PASSWORD@@", random_password.ha.result)
@@ -143,12 +131,12 @@ resource "scaleway_ipam_ip" "data_vip" {
   }
 
   lifecycle {
-    # Owned by the failover after creation: never move a VIP back to fw1.
+    # Owned by the failover after creation, so Terraform never moves a VIP back to fw1.
     ignore_changes = [custom_resource]
   }
 
-  # The provider detaches from the MAC in the state; after a failover the
-  # API refuses that (412). Move the VIP back to it first.
+  # After a failover the API refuses the provider's detach from the MAC in state (412),
+  # so the VIP moves back to that MAC first.
   provisioner "local-exec" {
     when    = destroy
     command = <<-EOT
@@ -159,16 +147,15 @@ resource "scaleway_ipam_ip" "data_vip" {
   }
 }
 
-# Rebuilding a node = replacing its generation (server, volume).
+# Rebuilding a node replaces its generation (server and volume):
 #   terraform apply -replace='terraform_data.fw_generation["fw1"]'
 resource "terraform_data" "fw_generation" {
   for_each = local.fw
   input    = coalesce(each.value.snapshot_id, each.value.image)
 }
 
-# What each node reads at first boot: the platform CLI in clear, the user
-# data (licence, admin keys, passwords) as a hash. FortiOS reads it once: a
-# change shows here and reaches the node when it is rebuilt.
+# The platform CLI in clear, the user data as a hash. FortiOS reads the user data once,
+# at first boot: a change reaches a node when it is rebuilt.
 resource "terraform_data" "fw_config" {
   for_each = local.fw
   input = {
@@ -193,13 +180,10 @@ resource "scaleway_block_volume" "fw" {
   }
 }
 
-# Hypervisor filter on the management NIC: SSH and HTTPS from the PGW
-# bastions only. Also set on the unused public NIC: an Instance without a
-# security group gets the project default one, created on the fly, which
-# then blocks the deletion of the project. The hub, egress and heartbeat
-# NICs carry none: their traffic is the firewall's to filter, and a stateful
-# hypervisor table on every transit flow or on the heartbeat would add risk
-# for no gain.
+# Hypervisor filter on the management NIC: SSH and HTTPS from the PGW bastions only.
+# The unused public NIC needs one too: an Instance without a group gets the project default,
+# which blocks project deletion. The hub, egress and heartbeat NICs have none: the firewall
+# filters that traffic, and a hypervisor table on it would add risk for no gain.
 resource "scaleway_instance_security_group" "fw" {
   for_each = toset(distinct([for n in values(local.fw) : n.zone]))
 
@@ -211,8 +195,8 @@ resource "scaleway_instance_security_group" "fw" {
   outbound_default_policy = "accept"
   tags                    = var.tags
 
-  # The PGW bastions, and admin_cidrs with admin_direct_access: the PAT rules
-  # keep the client address and have no source filter of their own.
+  # PGW bastions, and admin_cidrs with admin_direct_access: PAT rules keep the client address
+  # and do not filter sources.
   dynamic "inbound_rule" {
     for_each = setproduct(concat([for p in values(var.egress.pgw_hosts) : "${cidrhost(var.cidrs.mgmt, p)}/32"], var.admin_direct_access ? var.admin_cidrs : []), [22, 443])
     content {
@@ -237,9 +221,8 @@ resource "scaleway_instance_server" "fw" {
 
   security_group_id = scaleway_instance_security_group.fw[each.value.zone].id
   user_data         = { "cloud-init" = local.fw_user_data[each.key] }
-  # Created stopped: the first boot waits for the private NICs, so FortiOS
-  # finds all its ports, which its user data configures, at once (fw_ready
-  # starts it).
+  # Created stopped, so the first boot sees all ports once the private NICs exist.
+  # fw_ready starts it.
   state = "stopped"
 
   dynamic "root_volume" {
@@ -255,9 +238,8 @@ resource "scaleway_instance_server" "fw" {
   }
 
   lifecycle {
-    # type: changing it would stop both nodes; it applies to a rebuilt node.
-    # state: started by fw_ready. user_data: erased by fw_ready (fw_config
-    # tracks it).
+    # type applies on rebuild only, since a change would stop both nodes. fw_ready
+    # starts the node and erases its user data, which fw_config tracks.
     ignore_changes       = [type, state, user_data]
     replace_triggered_by = [terraform_data.fw_generation[each.key]]
   }
@@ -312,13 +294,10 @@ locals {
   }
 }
 
-# The server first starts here, once its private NICs exist: FortiOS loads
-# the licence from its user data, reboots, then applies the CLI. fortigate.sh
-# then waits for the admin key to be accepted and the licence to be valid,
-# and checks the port <-> MAC mapping. The user data, which FortiOS never
-# reads again, are then erased: they hold the licence and the passwords.
-# Runs when a node is (re)created.
-# Needs scw and ssh on the runner, and the runner in admin_cidrs (bastion).
+# Starts the node once its private NICs exist. FortiOS loads the license from the user data
+# and reboots. fortigate.sh then waits for the license and admin key and checks the port-to-MAC
+# mapping. The user data (license, passwords) is then erased: FortiOS never reads it again.
+# The runner needs scw and ssh, and must be in admin_cidrs (bastion).
 resource "terraform_data" "fw_ready" {
   for_each = local.fw
 

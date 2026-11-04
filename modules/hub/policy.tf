@@ -1,15 +1,13 @@
-# Firewall policy as data: addresses, services and policies rendered into
-# FortiOS CLI and pushed live to the FGCP primary, which syncs the secondary,
-# with the failover automation (failover.tf). Interfaces and routes are
-# platform (firewall.tf).
+# Firewall policy as data, rendered into FortiOS CLI and pushed live to the FGCP primary,
+# which syncs the secondary. Interfaces and routes are in firewall.tf, failover automation
+# in failover.tf.
 
 locals {
   rule_defaults = { protocol = "any", port = null, port_end = null, state = "sloppy", destination_not = false, log = true, nat = false }
 
-  # Customer rules (var.policy.rules) go before the default ones: the first
-  # matching policy wins, so an exception to the inter-spoke block precedes it.
-  # Default deny: the hub reaches a spoke only on the backends of its
-  # endpoints, on-prem flows are customer rules.
+  # Customer rules go first: the first matching policy wins, so an exception can precede
+  # the inter-spoke block. Default deny: the hub reaches spokes only on endpoint backends.
+  # On-prem flows need customer rules.
   default_rules = concat([
     merge(local.rule_defaults, {
       action      = "block", interface = "hub", out = "hub", source = "SPOKE_NETS", destination = "SPOKE_NETS"
@@ -21,16 +19,16 @@ locals {
       description = "[HUB] SRC=HUB_EGRESS_NET DST=${name} TCP/${b.port} ACT=PASS (hub endpoint ${name})"
     })
     ], [
-    # SNAT to the egress interface address, i.e. the egress data VIP. Traffic
-    # log only with a remote collector: on the node alone it fills the disk.
+    # SNAT to the egress data VIP. Traffic is logged only with a remote collector: on the node
+    # alone it fills the disk.
     merge(local.rule_defaults, {
       action      = "pass", interface = "hub", out = "egress", source = "SPOKE_NETS", destination = "internal_nets", destination_not = true
       description = "[EGRESS] SRC=SPOKE_NETS DST=INTERNET ACT=PASS NAT=EGRESS_DATA_VIP", log = length(local.syslog) > 0, nat = true
     }),
   ])
 
-  # Policy id = position, so a re-push only rewrites what moved (fortigate.sh
-  # drops the ids that are gone).
+  # Policy id is the position, so a re-push rewrites only the rules that moved (fortigate.sh
+  # drops removed ids).
   policy_rules = [
     for i, r in concat([for r in var.policy.rules : merge(local.rule_defaults, r, { out = "any" })], local.default_rules) : merge(r, {
       id      = i + 1
@@ -54,7 +52,7 @@ locals {
 
   fgt_aliases = merge(local.builtin_aliases, var.policy.aliases)
 
-  # Every CIDR becomes an address object; an alias is an address group of them.
+  # Each CIDR becomes an address object; each alias becomes an address group.
   fgt_cidrs = distinct(concat(flatten(values(local.fgt_aliases)), [
     for e in concat([for r in var.policy.rules : r.source], [for r in var.policy.rules : r.destination]) : e if can(cidrnetmask(e))
   ]))
@@ -81,8 +79,8 @@ locals {
   })
 }
 
-# Pushed live to the primary on every policy change, and once the nodes are
-# ready. A setting made in the WebUI is overwritten by the next push.
+# Pushed live to the primary on each policy change and once the nodes are ready. A WebUI
+# change is overwritten by the next push.
 resource "terraform_data" "fw_policy" {
   input            = local.fw_policy
   triggers_replace = [local.fw_policy, scaleway_iam_api_key.fw_invoke.id, data.scaleway_ipam_ip.ipam_follow.address, [for r in terraform_data.fw_ready : r.id]]

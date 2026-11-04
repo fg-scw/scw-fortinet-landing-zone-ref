@@ -1,4 +1,4 @@
-# terraform test - offline, no Scaleway API call.
+# Offline plan tests, no Scaleway API call.
 mock_provider "scaleway" {}
 
 variables {

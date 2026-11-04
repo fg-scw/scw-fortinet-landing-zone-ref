@@ -13,12 +13,12 @@ variable "registry" {
   type = map(object({
     index         = number
     hybrid_bypass = optional(bool, false)
-    # Baseline security groups accept traffic inside each Private Network;
-    # false closes it (workloads then need their own groups to talk).
+    # Baseline groups allow traffic inside the Private Network. false closes it,
+    # so workloads need their own groups to talk.
     intra_pn = optional(bool, true)
-    # Flows allowed INTO the spoke from outside it (on-prem, hub, other spokes once
-    # the firewall allows them). The spoke NACL drops everything else, except the
-    # stateless return range (TCP/UDP 32768-65535 from anywhere, nacl.tf).
+    # Inbound flows from outside the spoke (on-prem, hub, other spokes once the
+    # firewall allows them). The NACL drops the rest, except the return range
+    # (TCP/UDP 32768-65535 from anywhere, see nacl.tf).
     nacl_inbound = optional(list(object({
       to          = string # pub | private
       source      = string

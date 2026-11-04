@@ -1,18 +1,18 @@
-# Copy to terraform.tfvars (never committed). Options: variables.tf, and
-# modules/*/variables.tf for what main.tf passes through.
+# Copy to terraform.tfvars (never committed). Options are in variables.tf and in
+# the modules/*/variables.tf files that main.tf passes through.
 
-# Public IPs allowed on the bastion, the machine running Terraform included:
-# it checks new firewalls and pushes the policy through the bastion.
+# Public IPs allowed on the bastion, including the machine running Terraform. It
+# checks new firewalls and pushes the policy through the bastion.
 admin_cidrs           = ["203.0.113.10/32"]
 admin_ssh_public_keys = ["ssh-ed25519 AAAA_REPLACE_ME admin@example"]
 
-# Also reach each firewall on the public IP of its Public Gateway (SSH 2222,
-# WebUI 8443), from admin_cidrs only. Off: through the bastion only.
+# Also allow admin_cidrs to reach each firewall on its Public Gateway IP (SSH 2222,
+# WebUI 8443). Off: through the bastion only.
 # admin_direct_access = true
 
-# Factory FortiOS KVM snapshot of each zone (README, step 1) and the licence
-# file of each node (.lic, never committed). The node zones also set the zones
-# of the Public Gateways and VPN gateways.
+# Factory FortiOS KVM snapshot of each zone (README, step 1) and license file of
+# each node (.lic, never committed). The node zones also set the zones of the
+# Public Gateways and VPN gateways.
 firewall = {
   instance_type = "POP2-2C-8G"
   nodes = {
@@ -21,8 +21,8 @@ firewall = {
   }
 }
 
-# Spokes. index (0-1023) is permanent and sets the spoke CIDRs: Pub /22 from
-# 10.64.0.0/12, Private /21 from 10.96.0.0/11. Never renumber a live spoke.
+# Spokes. index (0-1023) sets the spoke CIDRs (Pub /22 from 10.64.0.0/12, Private
+# /21 from 10.96.0.0/11). Do not change it once the spoke is live.
 spokes = {
   genomic = {
     index         = 1

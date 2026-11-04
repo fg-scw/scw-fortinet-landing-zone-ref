@@ -8,9 +8,9 @@ terraform {
     }
   }
 
-  # State in Scaleway Object Storage: bucket, key, region and endpoint come from
+  # State in Scaleway Object Storage. Bucket, key, region and endpoint come from
   # backend.hcl (terraform init -backend-config=backend.hcl). The state holds
-  # the firewall passwords, licences and API keys: keep the bucket private.
+  # firewall passwords, licenses and API keys: keep the bucket private.
   backend "s3" {
     use_lockfile                = true
     skip_region_validation      = true

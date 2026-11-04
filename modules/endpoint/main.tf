@@ -1,6 +1,6 @@
-# Public exposure: Edge Services (TLS, WAF) -> one Load Balancer per zone ->
-# backends on the attached Private Network or any VPC routed from it.
-# The Edge Services plan is a per-project subscription owned by the caller.
+# Public exposure: Edge Services (TLS, WAF), one Load Balancer per zone, then
+# backends on the attached Private Network or any VPC routed from it. The Edge
+# Services plan is a per-project subscription owned by the caller.
 
 resource "scaleway_lb_ip" "this" {
   for_each = toset(var.config.zones)
@@ -57,7 +57,7 @@ resource "scaleway_lb_frontend" "this" {
   external_acls = true
 }
 
-# Behind Edge Services, the LB only answers Edge Services IPs.
+# Behind Edge Services, the LB accepts only Edge Services IPs.
 resource "scaleway_lb_acl" "allow_edge" {
   for_each = scaleway_lb_frontend.this
 
@@ -79,8 +79,6 @@ resource "scaleway_lb_acl" "deny_others" {
   action { type = "deny" }
   match { ip_subnet = ["0.0.0.0/0"] }
 }
-
-# --- Edge Services pipeline: DNS -> TLS -> WAF -> LBs ------------------------
 
 resource "scaleway_edge_services_pipeline" "this" {
   name       = var.name

@@ -41,10 +41,9 @@ variable "spoke_supernet" {
     error_message = "spoke_supernet must be a CIDR of /10 or larger (1024 spoke slots)."
   }
 
-  # No cidrcontains in Terraform: compare the first and last address of each
-  # range as integers. Covers the hub networks, the spoke supernet and the
-  # on-prem ranges (VPN, Interlink): an overlap breaks routing and peering,
-  # and CIDRs cannot be modified afterwards.
+  # Terraform has no cidrcontains: ranges are compared as first and last integer addresses.
+  # Covers the hub networks, spoke supernet and on-prem ranges. An overlap breaks routing and
+  # peering, and CIDRs cannot be changed later.
   validation {
     condition = try(!anytrue(flatten([
       for ranges in [concat(
@@ -105,8 +104,7 @@ variable "firewall" {
       size_gb = optional(number, 10)
       iops    = optional(number, 5000)
     }), {})
-    # Host numbers in the mgmt, hub, sync and egress networks (data VIPs,
-    # nodes).
+    # Host numbers in the mgmt, hub, sync and egress networks.
     hosts = optional(object({
       data = optional(number, 10) # IPAM data VIPs, hub and egress
       fw1  = optional(number, 11)
@@ -122,14 +120,12 @@ variable "firewall" {
       a = optional(string, "1.0.0.1")
       b = optional(string, "9.9.9.9")
     }), {})
-    # FGCP. arps/arps_interval: gratuitous ARPs sent by a new primary; 60 x 1 s
-    # is the setting validated on Scaleway (the default 5 x 5 s loses some).
+    # Gratuitous ARPs sent by a new primary. The default 5 x 5 s loses some on Scaleway.
     ha = optional(object({
       arps          = optional(number, 60)
       arps_interval = optional(number, 1)
     }), {})
-    # Remote syslog collectors (UDP or TCP), at most 4. Platform setting:
-    # changing it means rebuilding the nodes.
+    # Remote syslog collectors (UDP or TCP), at most 4. A change rebuilds the nodes.
     syslog = optional(list(object({
       host      = string
       port      = optional(number, 514)
@@ -139,7 +135,7 @@ variable "firewall" {
       zone        = string
       image       = optional(string)
       snapshot_id = optional(string)
-      # FortiGate-VM licence file (.lic) of this node, in its cloud-init user data.
+      # FortiGate-VM license file (.lic) of this node, in its cloud-init user data.
       license_file = optional(string)
     }))
   })
@@ -288,8 +284,7 @@ variable "policy" {
   default  = {}
   nullable = false
 
-  # Built-in alias names (policy.tf) are listed here: a
-  # variable cannot read locals.
+  # Built-in alias names, repeated here because a variable cannot read locals (policy.tf).
   validation {
     condition = alltrue([
       for e in concat(
@@ -318,8 +313,8 @@ variable "policy" {
     error_message = "policy.rules: port needs protocol tcp or udp, within 1-65535, and port_end >= port."
   }
 
-  # Descriptions go into quoted FortiOS CLI strings: no quote, backslash or
-  # markup; unique, as they name the rules.
+  # Descriptions are quoted in FortiOS CLI and name the rules: unique, and free of quotes,
+  # backslashes and markup.
   validation {
     condition = alltrue([
       for d in concat([for r in var.policy.rules : r.description], [for n in var.policy.nat_outbound : n.description]) :

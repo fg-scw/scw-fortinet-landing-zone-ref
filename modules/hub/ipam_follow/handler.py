@@ -24,8 +24,7 @@ import urllib.request
 
 API = "https://api.scaleway.com/ipam/v1/regions/{region}/ips/{ip_id}"
 
-# ponytail: in memory, the container runs one instance (max_scale). A restart
-# forgets it: a late call right after one gets through, the reconcile fixes it.
+# Kept in memory, hence max_scale = 1. Lost on restart; the reconcile corrects any late call.
 latest = 0
 lock = threading.Lock()
 
@@ -81,7 +80,7 @@ def handle(event, context):
         try:
             for vip in vips:
                 result[f'{vip["ip_id"]} -> {vip["mac"]}'] = follow(vip, os.environ["REGION"])
-        except Exception as e:  # logged for Cockpit, the hourly reconcile retries
+        except Exception as e:  # Logged to Cockpit; the hourly reconcile retries
             print(json.dumps({"node": node, "done": result, "error": str(e)}))
             return {"statusCode": 502, "body": json.dumps({"done": result, "error": str(e)})}
     print(json.dumps({"node": node, "done": result}))

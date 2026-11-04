@@ -1,10 +1,8 @@
-# The data VIPs follow the FGCP primary in IPAM. The VPC router takes the next
-# hop of the hub VIP from its last writer: FGCP's Gratuitous ARP moves it first,
-# this IPAM write is the second path. The node that becomes primary calls a private Serverless Container on the hub Private Network
-# (automation stitch, pushed with the policy), which moves both VIPs to its
-# NICs with an IAM key limited to IPAM in this project. The firewall only
-# holds a key that can call it. Nothing in the failover path crosses the
-# Internet or the Public Gateways.
+# The VPC router takes the hub VIP's next hop from the last write: the Gratuitous ARP
+# from FGCP, or the IPAM write of the failover container. The new primary calls that
+# container on the hub Private Network (automation stitch). Its IAM key is limited to
+# IPAM in this project, and the firewall holds only a key that can call it.
+# No Internet or Public Gateway is on this path.
 
 locals {
   # Hub VIP first: it carries the ingress rules.
@@ -48,9 +46,8 @@ resource "scaleway_container_namespace" "this" {
   tags       = var.tags
 }
 
-# Stock Python image, the stdlib-only handler passed as the command: no
-# registry to feed. The firewall calls the private endpoint, through its hub
-# leg, and the public endpoint is off.
+# Stock Python image running the stdlib-only handler: nothing to build or push.
+# The firewall calls the private endpoint over its hub leg.
 resource "scaleway_container" "ipam_follow" {
   name                           = "ipam-follow"
   namespace_id                   = scaleway_container_namespace.this.id
@@ -61,8 +58,8 @@ resource "scaleway_container" "ipam_follow" {
   private_network_id             = scaleway_vpc_private_network.this["hub"].id
   enable_private_endpoint        = true
   enable_default_public_endpoint = false
-  min_scale                      = 1 # a cold start costs as much as the whole failover
-  max_scale                      = 1 # the handler keeps the newest event time in memory
+  min_scale                      = 1 # a cold start would add to the failover time
+  max_scale                      = 1 # one instance: the handler keeps the newest event time in memory
   timeout                        = 60
   tags                           = var.tags
 
@@ -76,10 +73,9 @@ resource "scaleway_container" "ipam_follow" {
   }
 }
 
-# Address of the private endpoint. FortiOS refuses to resolve .internal names
-# and its webhook checks the certificate name with the chain, so the stitch
-# calls this address over TLS without a host check. The hub PN only carries
-# the firewalls and the container, and Scaleway drops forged source MACs.
+# Called by IP over TLS, without a host check: FortiOS cannot resolve .internal names,
+# and its webhook check also requires the host name to match. Only the firewalls and
+# this container sit on the hub PN, and Scaleway drops forged source MACs.
 data "scaleway_ipam_ip" "ipam_follow" {
   private_network_id = scaleway_vpc_private_network.this["hub"].id
   type               = "ipv4"
@@ -89,8 +85,7 @@ data "scaleway_ipam_ip" "ipam_follow" {
   }
 }
 
-# The firewall authenticates with an IAM key that can only call the private
-# containers of this project.
+# The firewall's IAM key can only call the private containers of this project.
 resource "scaleway_iam_application" "fw_invoke" {
   name        = "${var.name}-fw-invoke"
   description = "FortiGate automation stitch: calls the failover container"

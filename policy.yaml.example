@@ -1,11 +1,11 @@
-# Copy to policy.yaml (same folder) to extend the firewall policy; main.tf
-# reads it. A change is pushed live to the FGCP primary at apply, no rebuild.
+# Copy to policy.yaml (same folder) to extend the firewall policy. main.tf reads
+# it. Apply pushes changes live to the FGCP primary, with no rebuild.
 #
 # Ordering: rules are evaluated top-down, first match wins (quick rules). Your
-# rules are rendered BEFORE the default ones ([EW] inter-spoke block, [HUB] one
-# per hub endpoint, [EGRESS]), so an exception to the inter-spoke block works as
-# is. Nothing else is open: on-prem flows (ONPREM_VPN) are rules of yours. Rule
-# descriptions must be unique and free of <, > and &.
+# rules render before the defaults ([EW] inter-spoke block, [HUB] one per hub
+# endpoint, [EGRESS]), so an exception to the inter-spoke block works as written.
+# Nothing else is open: on-prem flows (ONPREM_VPN) need rules of yours. Rule
+# descriptions must be unique and contain no <, > or &.
 #
 # aliases: name -> CIDRs. Built-in aliases usable in rules: SPOKE_NETS,
 # HUB_EGRESS_NET, ONPREM_VPN, EGRESS_PGWS, internal_nets.
@@ -14,7 +14,7 @@
 # any|tcp|udp|icmp, state sloppy (default)|keep, optional port / port_end
 # (tcp and udp only). source / destination: alias, CIDR or any.
 #
-# nat_outbound is not supported on FortiGate: the [EGRESS] rule SNATs the
+# nat_outbound is not supported on FortiGate. The [EGRESS] rule SNATs the
 # spokes to the egress data VIP.
 #
 # aliases:
