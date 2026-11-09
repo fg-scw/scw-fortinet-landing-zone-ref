@@ -124,13 +124,3 @@ Les SDN Connectors Fortinet déplacent par API ce que le réseau rattache à une
 - Une route VPC vers une carte (`nexthop_resource_id`, avec `nexthop_private_network_id` obligatoire) ignore le Gratuitous ARP et ne bouge que par API, en moins de 2 s. Le déploiement n'en utilise pas.
 - Une IP flexible est zonale et ne s'attache pas à un nœud d'une autre zone.
 
-## Ce qui n'est pas prouvé
-
-- La perte réelle d'une zone, y compris celle de l'instance du conteneur.
-- La garantie, ou la stabilité dans le temps, du suivi du Gratuitous ARP par le routeur.
-- La cause du délai des routes après l'élection (`route-ttl` n'a pas été testé).
-- Une remise à zéro automatique des link monitors.
-- Un appel tardif naturel vers un secondaire : le refus est prouvé sur un appel rejoué.
-- Pourquoi l'appel du secondaire reste en attente, et pourquoi une seule des trois actions part.
-- Interlink, et la bascule d'une exposition avec Edge Services en service.
-- La tenue au-delà de 3 h.
