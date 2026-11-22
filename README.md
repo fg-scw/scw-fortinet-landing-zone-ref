@@ -28,7 +28,7 @@ modules/observability      relais syslog vers Cockpit (optionnel)
 - Deux licences FortiGate-VM BYOL de même niveau, une par nœud, enregistrées sur FortiCare (support.fortinet.com) qui fournit les fichiers `.lic`, à ne jamais versionner. FG-VM02 pour `POP2-2C-8G`, le type par défaut, FG-VM04 pour 4 vCPU. Aucun service FortiGuard payant n'est utilisé.
 - L'image FortiOS pour KVM (`FGT_VM64_KVM-…kvm.zip` sur FortiCare, dont on extrait `fortios.qcow2`). Version validée : 8.0.2.
 - Un bucket Object Storage privé et versionné en `fr-par` pour le state et le qcow2. Le state contient le mot de passe `admin`, les licences et les clés de bascule.
-- L'IP publique fixe des administrateurs et de la machine qui déploie (`admin_cidrs`), et leurs clés SSH publiques (`admin_ssh_public_keys`).
+- L'IP publique fixe des administrateurs et de la machine qui déploie (`admin_cidrs`), et leurs clés SSH publiques (`admin_ssh_public_keys`). Sans IP fixe, `admin_from_anywhere = true` ouvre le bastion et l'accès direct à toutes les sources, protégées par les seules clés SSH et le mot de passe admin : pour des tests uniquement.
 - Pour une exposition, la main sur le DNS de son FQDN. Pour `vpn`, une passerelle on-prem IPsec avec BGP ; pour `interlink`, un lien commandé auprès d'un partenaire ou un lien dédié.
 
 Sur la machine qui déploie : Terraform 1.10 ou plus, `scw`, `ssh` et `aws` (dépôt du qcow2).

@@ -5,6 +5,8 @@
 # No Internet or Public Gateway is on this path.
 
 locals {
+  admin_sources = var.admin_from_anywhere ? ["0.0.0.0/0"] : var.admin_cidrs
+
   # Hub VIP first: it carries the ingress rules.
   ipam_follow_nodes = {
     for k in keys(local.fw) : "${var.name}-${k}" => [

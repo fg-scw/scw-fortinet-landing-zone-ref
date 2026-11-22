@@ -73,11 +73,19 @@ variable "hub_vrouter_ip" {
 variable "admin_cidrs" {
   description = "Public CIDRs allowed on the Public Gateway SSH bastion."
   type        = list(string)
+  default     = []
 
   validation {
-    condition     = length(var.admin_cidrs) > 0 && alltrue([for c in var.admin_cidrs : can(cidrhost(c, 0)) && c != "0.0.0.0/0"])
-    error_message = "admin_cidrs must contain valid, non-default CIDRs."
+    condition     = var.admin_from_anywhere || (length(var.admin_cidrs) > 0 && alltrue([for c in var.admin_cidrs : can(cidrhost(c, 0)) && c != "0.0.0.0/0"]))
+    error_message = "admin_cidrs must contain valid, non-default CIDRs, unless admin_from_anywhere is true."
   }
+}
+
+variable "admin_from_anywhere" {
+  description = "Admit any source (0.0.0.0/0) on the bastion and the direct access, and ignore admin_cidrs."
+  type        = bool
+  default     = false
+  nullable    = false
 }
 
 variable "admin_direct_access" {

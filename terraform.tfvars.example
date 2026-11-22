@@ -4,6 +4,8 @@
 # Public IPs allowed on the bastion, including the machine running Terraform. It
 # checks new firewalls and pushes the policy through the bastion.
 admin_cidrs           = ["203.0.113.10/32"]
+# Without fixed admin IPs (tests only): any source, protected by SSH keys and password.
+# admin_from_anywhere = true
 admin_ssh_public_keys = ["ssh-ed25519 AAAA_REPLACE_ME admin@example"]
 
 # Also allow admin_cidrs to reach each firewall on its Public Gateway IP (SSH 2222,

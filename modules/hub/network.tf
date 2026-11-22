@@ -83,7 +83,7 @@ resource "scaleway_vpc_public_gateway" "egress" {
   zone              = each.value.zone
   ip_id             = scaleway_vpc_public_gateway_ip.egress[each.key].id
   bastion_enabled   = true
-  allowed_ip_ranges = var.admin_cidrs
+  allowed_ip_ranges = local.admin_sources
   refresh_ssh_keys  = join(",", sort([for k in scaleway_iam_ssh_key.admin : k.id]))
   tags              = var.tags
 }

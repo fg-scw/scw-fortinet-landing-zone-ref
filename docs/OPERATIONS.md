@@ -63,7 +63,7 @@ Aucun nœud n'est reconstruit. Si une bascule échoue entre-temps, déplacez les
 
 ## Accès direct aux firewalls
 
-Avec `admin_direct_access = true`, chaque Public Gateway redirige ses ports publics vers le nœud de sa zone : `ssh -p 2222 admin@<ip-pgw>` et `https://<ip-pgw>:8443`, donnés par la sortie `access` (`direct_ssh`, `direct_webui`). Seules les adresses de `admin_cidrs` passent. L'option s'active et se retire par un apply, sans reconstruire les nœuds. Le WebUI présente le certificat auto-signé du FortiGate.
+Avec `admin_direct_access = true`, chaque Public Gateway redirige ses ports publics vers le nœud de sa zone : `ssh -p 2222 admin@<ip-pgw>` et `https://<ip-pgw>:8443`, donnés par la sortie `access` (`direct_ssh`, `direct_webui`). Seules les adresses de `admin_cidrs` passent, ou toutes les sources avec `admin_from_anywhere = true` (tests uniquement). L'option s'active et se retire par un apply, sans reconstruire les nœuds. Le WebUI présente le certificat auto-signé du FortiGate.
 
 ## Journaux
 
