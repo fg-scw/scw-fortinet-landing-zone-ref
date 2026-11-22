@@ -17,8 +17,16 @@ variable "policy_file" {
 }
 
 variable "admin_cidrs" {
-  description = "Public IPs allowed on the Public Gateway SSH bastion, the Terraform runner included."
+  description = "Public IPs allowed on the Public Gateway SSH bastion, the Terraform runner included. Ignored with admin_from_anywhere."
   type        = list(string)
+  default     = []
+}
+
+variable "admin_from_anywhere" {
+  description = "Open the bastion, and the direct access when enabled, to 0.0.0.0/0 and ignore admin_cidrs. For tests, or when the admin IPs are unknown."
+  type        = bool
+  default     = false
+  nullable    = false
 }
 
 variable "admin_direct_access" {

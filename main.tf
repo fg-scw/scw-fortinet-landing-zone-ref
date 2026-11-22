@@ -13,6 +13,7 @@ module "hub" {
 
   policy                = local.policy
   admin_cidrs           = var.admin_cidrs
+  admin_from_anywhere   = var.admin_from_anywhere
   admin_direct_access   = var.admin_direct_access
   admin_ssh_public_keys = var.admin_ssh_public_keys
   firewall              = var.firewall

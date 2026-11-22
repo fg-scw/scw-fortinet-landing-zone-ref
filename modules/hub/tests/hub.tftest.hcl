@@ -392,6 +392,35 @@ run "direct_admin_access" {
   }
 }
 
+run "admin_from_anywhere" {
+  command = plan
+
+  variables {
+    admin_from_anywhere = true
+    admin_cidrs         = []
+    admin_direct_access = true
+  }
+
+  assert {
+    condition     = alltrue([for g in scaleway_vpc_public_gateway.egress : toset(g.allowed_ip_ranges) == toset(["0.0.0.0/0"])])
+    error_message = "The bastion admits any source."
+  }
+  assert {
+    condition     = alltrue([for sg in scaleway_instance_security_group.fw : contains([for r in sg.inbound_rule : "${r.ip_range} ${r.port}"], "0.0.0.0/0 22") && contains([for r in sg.inbound_rule : "${r.ip_range} ${r.port}"], "0.0.0.0/0 443")])
+    error_message = "The firewall security group admits any source on 22 and 443."
+  }
+}
+
+run "rejects_default_route_admin" {
+  command = plan
+
+  variables {
+    admin_cidrs = ["0.0.0.0/0"]
+  }
+
+  expect_failures = [var.admin_cidrs]
+}
+
 run "remote_syslog" {
   command = plan
 

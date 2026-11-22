@@ -198,7 +198,7 @@ resource "scaleway_instance_security_group" "fw" {
   # PGW bastions, and admin_cidrs with admin_direct_access: PAT rules keep the client address
   # and do not filter sources.
   dynamic "inbound_rule" {
-    for_each = setproduct(concat([for p in values(var.egress.pgw_hosts) : "${cidrhost(var.cidrs.mgmt, p)}/32"], var.admin_direct_access ? var.admin_cidrs : []), [22, 443])
+    for_each = setproduct(concat([for p in values(var.egress.pgw_hosts) : "${cidrhost(var.cidrs.mgmt, p)}/32"], var.admin_direct_access ? local.admin_sources : []), [22, 443])
     content {
       action   = "accept"
       protocol = "TCP"
